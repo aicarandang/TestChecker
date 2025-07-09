@@ -1,6 +1,9 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import '../styles/styles.css';
 
 function Dashboard() {
+  const navigate = useNavigate();
   return (
     <div className="dashboard-outer">
       <div className="dashboard-container">
@@ -9,9 +12,11 @@ function Dashboard() {
           <button className="new-answer-sheet-btn" disabled>+ New Answer Sheet</button>
         </aside>
         <main className="dashboard-content">
-          <h1 className="title">TEST CHECKER</h1>
-          <p className="subtitle">Create sheets. Upload scans. Get results.</p>
-          <button className="create-answer-sheet-btn">Create Answer Sheet</button>
+          <h1 className="dashboard-title">TEST CHECKER</h1>
+          <p className="dashboard-subtitle">Create sheets. Upload scans. Get results.</p>
+          <button className="dashboard-create-btn" onClick={() => navigate('/answersheet')}>
+            Create Answer Sheet
+          </button>
         </main>
       </div>
     </div>
