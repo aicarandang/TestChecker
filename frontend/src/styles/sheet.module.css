@@ -28,14 +28,35 @@
 
 /* Answer Sheet Main Contents */
 .answer-sheet-content {
-  flex: 1 1 0;
-  padding: 24px 40px 32px 24px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   justify-content: flex-start;
   height: 100%;
-  overflow-y: visible;
+  padding: 24px 40px 8px 24px;
+  flex: 1 1 0;
+  overflow: hidden;
+}
+
+.answer-sheet-scrollable {
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  overflow-y: auto;
+  padding-right: 12px;
+  scrollbar-width: thin;
+  scrollbar-color: #b6a97a #faf9f7;
+  scrollbar-gutter: stable;
+}
+.answer-sheet-scrollable::-webkit-scrollbar {
+  width: 7px;
+}
+.answer-sheet-scrollable::-webkit-scrollbar-thumb {
+  background: #b6a97a;
+  border-radius: 6px;
+}
+.answer-sheet-scrollable::-webkit-scrollbar-track {
+  background: #faf9f7;
 }
 
 .answer-sheet-title {
@@ -181,6 +202,7 @@ textarea.input {
   display: flex;
   justify-content: flex-end;
   margin-top: 4px;
+  margin-bottom: 0;
 }
 
 .answer-sheet-create-btn {

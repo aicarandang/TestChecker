@@ -27,6 +27,33 @@ function GenerateSheet() {
     numItems: initialData.numItems || '',
     numChoices: initialData.numChoices || '',
   });
+  const [showExamDropdown, setShowExamDropdown] = useState(false);
+  const [showChoicesDropdown, setShowChoicesDropdown] = useState(false);
+  const examOptions = ['MIDTERM EXAMINATION', 'FINAL EXAMINATION', 'QUIZ', 'LAB EXERCISE', 'HOMEWORK'];
+  const numChoicesOptions = [
+    '2 (A, B)',
+    '3 (A, B, C)',
+    '4 (A, B, C, D)',
+    '5 (A, B, C, D, E)',
+    '6 (A, B, C, D, E, F)'
+  ];
+  const examDropdownRef = React.useRef(null);
+  const choicesDropdownRef = React.useRef(null);
+
+  React.useEffect(() => {
+    function handleClickOutside(event) {
+      if (showExamDropdown && examDropdownRef.current && !examDropdownRef.current.contains(event.target)) {
+        setShowExamDropdown(false);
+      }
+      if (showChoicesDropdown && choicesDropdownRef.current && !choicesDropdownRef.current.contains(event.target)) {
+        setShowChoicesDropdown(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showExamDropdown, showChoicesDropdown]);
 
   const handleFormChange = (e) => {
     const { name, value } = e.target;
@@ -36,6 +63,19 @@ function GenerateSheet() {
   const handleNameEdit = () => setEditingName(true);
   const handleNameChange = (e) => setSheetName(e.target.value);
   const handleNameBlur = () => setEditingName(false);
+
+  const handleExamTypeSelect = (option) => {
+    setForm((prev) => ({ ...prev, examType: option }));
+    setShowExamDropdown(false);
+  };
+
+  const handleNumChoicesSelect = (option) => {
+    setForm((prev) => ({ ...prev, numChoices: option.split(' ')[0] }));
+    setShowChoicesDropdown(false);
+  };
+  const handleChoicesDropdownToggle = () => {
+    setShowChoicesDropdown((v) => !v);
+  };
 
   const handleTextareaResize = (e) => {
     const textarea = e.target;
@@ -77,7 +117,7 @@ function GenerateSheet() {
       doc.setFont('times', 'normal');
       doc.setFontSize(11);
       doc.text(
-        'Test I: Shade the circle that correspond to the letter of your chosen answer. Any kind of erasure or overwriting will invalidate your answer.',
+        form.testDirections || 'Test I: Shade the circle that correspond to the letter of your chosen answer. Any kind of erasure or overwriting will invalidate your answer.',
         48,
         y,
         { maxWidth: pageWidth - 96 }
@@ -152,13 +192,13 @@ function GenerateSheet() {
   };
 
   return (
-    <div className="answer-sheet-outer">
-      <div className="answer-sheet-container">
+    <div className={styles['generate-sheet-outer']}>
+      <div className={styles['generate-sheet-container']}>
         <aside className="sidebar">
           <h2>Dashboard</h2>
           <button className="new-answer-sheet-btn">+ New Answer Set</button>
           <div className="sidebar-answer-list">
-            <div className="sidebar-answer-item">
+            <div className="sidebar-answer-item" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               {editingName ? (
                 <input
                   className="sidebar-answer-edit-input"
@@ -168,153 +208,203 @@ function GenerateSheet() {
                   autoFocus
                 />
               ) : (
-                <span className="sidebar-answer-title">
-                  {sheetName}
+                <>
+                  <span className="sidebar-answer-title">{sheetName}</span>
                   <button className="sidebar-edit-btn" onClick={handleNameEdit} title="Rename">
                     <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
                       <path d="M4 13.5V16h2.5l7.06-7.06-2.5-2.5L4 13.5z" stroke="#6b7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                       <path d="M14.06 6.44a1.5 1.5 0 0 0 0-2.12l-1.38-1.38a1.5 1.5 0 0 0-2.12 0l-1.06 1.06 3.5 3.5 1.06-1.06z" stroke="#6b7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   </button>
-                </span>
+                </>
               )}
             </div>
           </div>
         </aside>
-        <main className="answer-sheet-content">
-          <h2 className="answer-sheet-title">{sheetName}</h2>
-          <nav className="answer-sheet-navbar">
+        <main className={styles['generate-sheet-content']}>
+          <h2 className={styles['generate-sheet-title']}>{sheetName}</h2>
+          <nav className={styles['generate-sheet-navbar']}>
             {NAV_TABS.map((tab) => (
               <button
                 key={tab.key}
-                className={`answer-sheet-nav-btn${activeTab === tab.key ? ' active' : ''}`}
+                className={
+                  styles['generate-sheet-nav-btn'] + (activeTab === tab.key ? ' ' + styles['active'] : '')
+                }
+                type="button"
                 onClick={() => setActiveTab(tab.key)}
+                aria-current={activeTab === tab.key ? 'page' : undefined}
               >
                 {tab.label}
               </button>
             ))}
           </nav>
-          {activeTab === 'generate' && (
-            <form className="answer-sheet-form">
-              <div className="answer-sheet-row">
-                <div className="answer-sheet-col">
-                  <label htmlFor="examType">Exam Type <span className="required">*</span></label>
-                  <input
-                    className="input custom-select-input"
-                    id="examType"
-                    name="examType"
-                    type="text"
-                    value={form.examType}
+          <div className={styles['generate-sheet-scrollable']}>
+            {activeTab === 'generate' && (
+              <form className={styles['generate-sheet-form']} autoComplete="off">
+                <div className={styles['generate-sheet-row']}>
+                  <div className={styles['generate-sheet-col']}>
+                    <label htmlFor="examType">Exam Type <span className={styles['required']}>*</span></label>
+                    <div className={styles['custom-select-container']} ref={examDropdownRef}>
+                      <input
+                        className={`${styles['input']} ${styles['custom-select-input']}`}
+                        id="examType"
+                        name="examType"
+                        type="text"
+                        value={form.examType}
+                        onChange={handleFormChange}
+                        placeholder="MIDTERM EXAMINATION"
+                        required
+                        autoComplete="off"
+                        onClick={() => setShowExamDropdown(true)}
+                      />
+                      <button type="button" className={styles['custom-select-arrow']} onClick={() => setShowExamDropdown((v) => !v)}>
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                          <path stroke="#6b7280" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M6 8l4 4 4-4"/>
+                        </svg>
+                      </button>
+                      {showExamDropdown && (
+                        <div className={styles['custom-select-dropdown']}>
+                          {examOptions.map((option) => (
+                            <div key={option} className={styles['custom-select-option']} onClick={() => handleExamTypeSelect(option)}>
+                              {option}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className={styles['generate-sheet-col']}>
+                    <label htmlFor="academicTerm">Academic Term</label>
+                    <input
+                      className={styles['input']}
+                      id="academicTerm"
+                      name="academicTerm"
+                      type="text"
+                      value={form.academicTerm}
+                      onChange={handleFormChange}
+                      placeholder="1ST SEM, S.Y. 20XX - 20XX"
+                      autoComplete="off"
+                    />
+                  </div>
+                </div>
+                <div className={styles['generate-sheet-row']}>
+                  <div className={styles['generate-sheet-col']} style={{ width: '100%' }}>
+                    <label htmlFor="subjectName">Subject Name <span className={styles['required']}>*</span></label>
+                    <input
+                      className={styles['input']}
+                      id="subjectName"
+                      name="subjectName"
+                      type="text"
+                      value={form.subjectName}
+                      onChange={handleFormChange}
+                      placeholder="ACC 310 - Auditing and Assurance Principles..."
+                      required
+                      autoComplete="off"
+                    />
+                  </div>
+                </div>
+                <div className={styles['form-group']}>
+                  <label>Display</label>
+                  <div className={styles['generate-sheet-row']}>
+                    <div className={styles['generate-sheet-col']}>
+                      <input className={styles['input']} type="text" placeholder="Name:" disabled />
+                    </div>
+                    <div className={styles['generate-sheet-col']}>
+                      <input className={styles['input']} type="text" placeholder="Date:" disabled />
+                    </div>
+                  </div>
+                  <div className={styles['generate-sheet-row']}>
+                    <div className={styles['generate-sheet-col']}>
+                      <input className={styles['input']} type="text" placeholder="Course/Section:" disabled />
+                    </div>
+                    <div className={styles['generate-sheet-col']}>
+                      <input className={styles['input']} type="text" placeholder="Score:" disabled />
+                    </div>
+                  </div>
+                </div>
+                <div className={styles['form-group']}>
+                  <label htmlFor="testDirections">Test Directions <span className={styles['required']}>*</span></label>
+                  <textarea
+                    className={styles['input']}
+                    id="testDirections"
+                    name="testDirections"
+                    rows={2}
+                    onInput={handleTextareaResize}
+                    placeholder="Test I: Shade the circle that correspond to the letter of your chosen answer. Any kind of erasure or overwriting will invalidate your answer."
+                    value={form.testDirections}
                     onChange={handleFormChange}
                     required
+                    autoComplete="off"
                   />
                 </div>
-                <div className="answer-sheet-col">
-                  <label htmlFor="academicTerm">Academic Term</label>
-                  <input
-                    className="input"
-                    id="academicTerm"
-                    name="academicTerm"
-                    type="text"
-                    value={form.academicTerm}
-                    onChange={handleFormChange}
-                  />
-                </div>
-              </div>
-              <div className="form-group">
-                <label htmlFor="subjectName">Subject Name <span className="required">*</span></label>
-                <input
-                  className="input"
-                  id="subjectName"
-                  name="subjectName"
-                  type="text"
-                  required
-                  value={form.subjectName}
-                  onChange={handleFormChange}
-                />
-              </div>
-              <div className="form-group">
-                <label>Display</label>
-                <div className="answer-sheet-row">
-                  <div className="answer-sheet-col">
-                    <input className="input" type="text" placeholder="Name:" disabled />
+                <div className={styles['generate-sheet-row']}>
+                  <div className={styles['generate-sheet-col']}>
+                    <label htmlFor="numItems">Number of Items <span className={styles['required']}>*</span></label>
+                    <input
+                      className={styles['input']}
+                      id="numItems"
+                      name="numItems"
+                      type="number"
+                      min="1"
+                      max="300"
+                      placeholder="50"
+                      required
+                      value={form.numItems}
+                      onChange={handleFormChange}
+                      autoComplete="off"
+                    />
                   </div>
-                  <div className="answer-sheet-col">
-                    <input className="input" type="text" placeholder="Date:" disabled />
+                  <div className={styles['generate-sheet-col']}>
+                    <label htmlFor="numChoices">Number of Choices <span className={styles['required']}>*</span></label>
+                    <div className={styles['custom-select-container']} ref={choicesDropdownRef}>
+                      <input
+                        className={`${styles['input']} ${styles['custom-select-input']}`}
+                        id="numChoices"
+                        name="numChoices"
+                        type="text"
+                        value={form.numChoices ? `${form.numChoices} (${['A','B','C','D','E','F'].slice(0, Number(form.numChoices)).join(', ')})` : ''}
+                        onChange={() => {}}
+                        placeholder="Select number of choices"
+                        required
+                        readOnly
+                        onClick={handleChoicesDropdownToggle}
+                        style={{ cursor: 'pointer' }}
+                        autoComplete="off"
+                      />
+                      <button type="button" className={styles['custom-select-arrow']} onClick={handleChoicesDropdownToggle}>
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                          <path stroke="#6b7280" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M6 8l4 4 4-4"/>
+                        </svg>
+                      </button>
+                      {showChoicesDropdown && (
+                        <div className={styles['customSelectDropdownUp']}>
+                          {numChoicesOptions.map((option) => (
+                            <div key={option} className={styles['custom-select-option']} onClick={() => handleNumChoicesSelect(option)}>
+                              {option}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <div className="answer-sheet-row">
-                  <div className="answer-sheet-col">
-                    <input className="input" type="text" placeholder="Course/Section:" disabled />
-                  </div>
-                  <div className="answer-sheet-col">
-                    <input className="input" type="text" placeholder="Score:" disabled />
-                  </div>
+                <div className={styles['generate-sheet-btn-row']}>
+                  <button className={styles['generate-sheet-create-btn']} type="button" onClick={handleGeneratePDF}>
+                    Generate Answer Sheet
+                  </button>
                 </div>
-              </div>
-              <div className="form-group">
-                <label htmlFor="testDirections">Test Directions</label>
-                <textarea
-                  className="input"
-                  id="testDirections"
-                  name="testDirections"
-                  rows={2}
-                  value={form.testDirections}
-                  onChange={handleFormChange}
-                  onInput={handleTextareaResize}
-                  placeholder="Enter test directions..."
-                />
-              </div>
-              <div className="answer-sheet-row">
-                <div className="answer-sheet-col">
-                  <label htmlFor="numItems">Number of Items <span className="required">*</span></label>
-                  <input
-                    className="input"
-                    id="numItems"
-                    name="numItems"
-                    type="number"
-                    min="1"
-                    max="300"
-                    required
-                    value={form.numItems}
-                    onChange={handleFormChange}
-                  />
-                </div>
-                <div className="answer-sheet-col">
-                  <label htmlFor="numChoices">Number of Choices <span className="required">*</span></label>
-                  <select
-                    className="input"
-                    id="numChoices"
-                    name="numChoices"
-                    required
-                    value={form.numChoices}
-                    onChange={handleFormChange}
-                  >
-                    <option value="">Select number of choices</option>
-                    <option value="2">2 (A, B)</option>
-                    <option value="3">3 (A, B, C)</option>
-                    <option value="4">4 (A, B, C, D)</option>
-                    <option value="5">5 (A, B, C, D, E)</option>
-                    <option value="6">6 (A, B, C, D, E, F)</option>
-                  </select>
-                </div>
-              </div>
-              <div className="answer-sheet-btn-row">
-                <button className="answer-sheet-create-btn" type="button" onClick={handleGeneratePDF}>
-                  Generate Answer Sheet PDF
-                </button>
-              </div>
-            </form>
-          )}
-          {activeTab === 'answer' && (
-            <AnswerKey examData={form} />
-          )}
-          {activeTab === 'upload' && (
-            <div className="tab-placeholder">[Placeholder] Upload scanned sheets here.</div>
-          )}
-          {activeTab === 'results' && (
-            <div className="tab-placeholder">[Placeholder] View results here.</div>
-          )}
+              </form>
+            )}
+            {activeTab === 'answer' && (
+              <AnswerKey examData={form} />
+            )}
+            {activeTab === 'upload' && (
+              <div className="tab-placeholder">[Placeholder] Upload scanned sheets here.</div>
+            )}
+            {activeTab === 'results' && (
+              <div className="tab-placeholder">[Placeholder] View results here.</div>
+            )}
+          </div>
         </main>
       </div>
     </div>
