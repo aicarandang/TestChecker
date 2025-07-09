@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import '../styles/sidebar.css';
-import '../styles/answer.css';
+import styles from '../styles/answer.module.css';
 
 function AnswerKey({ examData: propExamData }) {
   const location = useLocation();
@@ -33,44 +33,44 @@ function AnswerKey({ examData: propExamData }) {
 
   const gridRows = [];
   for (let g = 0; g < numGroups; g++) {
-    gridRows.push(<span className="scantron-header-number" key={`hnum${g}`}></span>);
+    gridRows.push(<span className={styles.scantronHeaderNumber} key={`hnum${g}`}></span>);
     choiceLabels.forEach((choice, cidx) => {
       gridRows.push(
-        <span className="scantron-header-choice" key={`h${g}-${choice}`}>{choice}</span>
+        <span className={styles.scantronHeaderChoice} key={`h${g}-${choice}`}>{choice}</span>
       );
     });
     if (g < numGroups - 1) {
-      gridRows.push(<span className="scantron-spacer" key={`hspacer${g}`}></span>);
+      gridRows.push(<span className={styles.scantronSpacer} key={`hspacer${g}`}></span>);
     }
   }
   for (let i = 0; i < groupSize; i++) {
     for (let g = 0; g < numGroups; g++) {
       const qNum = g * groupSize + i + 1;
       if (qNum > numItems) {
-        gridRows.push(<span className="scantron-qnum-empty" key={`empty${g}-${i}`}></span>);
+        gridRows.push(<span className={styles.scantronQnumEmpty} key={`empty${g}-${i}`}></span>);
         choiceLabels.forEach((choice, cidx) => {
-          gridRows.push(<span className="scantron-bubble-empty" key={`empty${g}-${i}-${choice}`}></span>);
+          gridRows.push(<span className={styles.scantronBubbleEmpty} key={`empty${g}-${i}-${choice}`}></span>);
         });
       } else {
         gridRows.push(
-          <span className="scantron-qnum" key={`qnum${qNum}`}>{qNum}.</span>
+          <span className={styles.scantronQnum} key={`qnum${qNum}`}>{qNum}.</span>
         );
         choiceLabels.forEach((choice, cidx) => {
           gridRows.push(
             <button
               key={`b${qNum}-${choice}`}
-              className={`scantron-choice-btn${answerKey[qNum] === choice ? ' selected' : ''}`}
+              className={`${styles.scantronChoiceBtn}${answerKey[qNum] === choice ? ' selected' : ''}`}
               onClick={() => handleAnswerSelect(qNum, choice)}
               type="button"
               aria-label={`Set answer for question ${qNum} to ${choice}`}
             >
-              <span className="scantron-choice-circle"></span>
+              <span className={styles.scantronChoiceCircle}></span>
             </button>
           );
         });
       }
       if (g < numGroups - 1) {
-        gridRows.push(<span className="scantron-spacer" key={`spacer${g}-${i}`}></span>);
+        gridRows.push(<span className={styles.scantronSpacer} key={`spacer${g}-${i}`}></span>);
       }
     }
   }
@@ -89,9 +89,9 @@ function AnswerKey({ examData: propExamData }) {
   };
 
   return (
-    <div className="scantron-sheet-outer">
+    <div className={styles.scantronSheetOuter}>
       <div
-        className="scantron-sheet-grid"
+        className={styles.scantronSheetGrid}
         style={{
           display: 'grid',
           gridTemplateColumns,
@@ -103,8 +103,8 @@ function AnswerKey({ examData: propExamData }) {
       >
         {gridRows}
       </div>
-      <div className="scantron-sheet-footer">
-        <button className="bubble-save-btn" onClick={saveAnswerKey}>Save Answer Key</button>
+      <div className={styles.scantronSheetFooter}>
+        <button className={styles.bubbleSaveBtn} onClick={saveAnswerKey}>Save Answer Key</button>
       </div>
     </div>
   );

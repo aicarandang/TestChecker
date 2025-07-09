@@ -1,6 +1,6 @@
 import React from 'react';
 import '../styles/sidebar.css';
-import '../styles/upload.css';
+import styles from '../styles/upload.module.css';
 
 function UploadSheets() {
   return (

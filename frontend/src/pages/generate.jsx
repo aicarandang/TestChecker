@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import '../styles/sidebar.css';
-import '../styles/generate.css';
+import styles from '../styles/generate.module.css';
 import AnswerKey from './answer';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
