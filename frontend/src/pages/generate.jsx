@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import '../styles/styles.css';
+import '../styles/sidebar.css';
+import '../styles/generate.css';
 import AnswerKey from './answer';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -48,7 +49,6 @@ function GenerateSheet() {
     const pageHeight = doc.internal.pageSize.getHeight();
     let yStart = 48;
 
-    // Helper to render header, info boxes, and instructions
     function renderHeader(y) {
       doc.setFont('times', 'bold');
       doc.setFontSize(16);
@@ -61,7 +61,6 @@ function GenerateSheet() {
       doc.setFontSize(12);
       doc.text(form.academicTerm || 'TERM, S.Y. 20XX - 20XX', pageWidth / 2, y, { align: 'center' });
       y += 28;
-      // Info boxes
       const boxWidth = (pageWidth - 96) / 2;
       doc.setFontSize(11);
       doc.setLineWidth(1);
@@ -75,7 +74,6 @@ function GenerateSheet() {
       doc.rect(48 + boxWidth, y, boxWidth, 24);
       doc.text('SCORE:', 54 + boxWidth, y + 16);
       y += 36;
-      // Instructions
       doc.setFont('times', 'normal');
       doc.setFontSize(11);
       doc.text(
@@ -88,22 +86,19 @@ function GenerateSheet() {
       return y;
     }
 
-    // --- Scantron Grid ---
     const numItems = parseInt(form.numItems) || 50;
     const numChoices = parseInt(form.numChoices) || 4;
     const choiceLabels = ['A', 'B', 'C', 'D', 'E', 'F'].slice(0, numChoices);
-    // Group logic (same as answer key)
     let groupSize = 20;
     if (numItems <= 30) groupSize = 10;
     else if (numItems <= 60) groupSize = 20;
     else if (numItems <= 100) groupSize = 25;
     else groupSize = 30;
-    const groupGap = 32; // px between groups
-    const bubbleR = 7; // px radius (smaller)
-    const rowH = 22; // px row height (smaller)
-    const colW = 20; // px per bubble (smaller)
-    const numW = 20; // px for number (smaller)
-    // Split questions into pages of 50
+    const groupGap = 32; 
+    const bubbleR = 7; 
+    const rowH = 22; 
+    const colW = 20; 
+    const numW = 20; 
     let pageStart = 1;
     let page = 0;
     const pageMargin = 8;
@@ -112,7 +107,6 @@ function GenerateSheet() {
       let y = renderHeader(yStart);
       const pageEnd = Math.min(pageStart + 50 - 1, numItems);
       const pageQuestions = pageEnd - pageStart + 1;
-      // Determine groups for this page
       let localGroupSize = groupSize;
       if (pageQuestions <= 30) localGroupSize = 10;
       else if (pageQuestions <= 60) localGroupSize = 20;
@@ -122,7 +116,6 @@ function GenerateSheet() {
       const groupWidth = numW + numChoices * colW;
       const gridWidth = numGroups * groupWidth + (numGroups - 1) * groupGap;
       const gridStartX = (pageWidth - gridWidth) / 2;
-      // Header row
       let yGrid = y;
       for (let g = 0; g < numGroups; g++) {
         let x = gridStartX + g * (groupWidth + groupGap);
@@ -133,7 +126,6 @@ function GenerateSheet() {
         });
       }
       yGrid += 10;
-      // Rows
       for (let i = 0; i < localGroupSize; i++) {
         for (let g = 0; g < numGroups; g++) {
           const qNum = pageStart + g * localGroupSize + i;
@@ -142,18 +134,15 @@ function GenerateSheet() {
           let yRow = yGrid + i * rowH;
           doc.setFont('times', 'normal');
           doc.setFontSize(11);
-          // Center number horizontally and align it lower, closer to the bottom of the circles
           const cx = x + numW / 2;
           const cy = yRow + bubbleR + 5;
           doc.text(`${qNum}.`, cx, cy + bubbleR - 1, { align: 'center' });
-          // Only draw circles for the answer choices
           for (let cidx = 0; cidx < numChoices; cidx++) {
             doc.setLineWidth(1);
             doc.circle(x + numW + cidx * colW + colW / 2, yRow + bubbleR + 5, bubbleR, 'S');
           }
         }
       }
-      // Outer border fills nearly the whole page
       doc.setLineWidth(2);
       doc.rect(pageMargin, pageMargin, pageWidth - 2 * pageMargin, pageHeight - 2 * pageMargin);
       pageStart += 50;

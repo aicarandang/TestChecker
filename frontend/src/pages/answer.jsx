@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import '../styles/styles.css';
+import '../styles/sidebar.css';
+import '../styles/answer.css';
 
 function AnswerKey({ examData: propExamData }) {
   const location = useLocation();
@@ -23,7 +24,6 @@ function AnswerKey({ examData: propExamData }) {
 
   const choiceLabels = ['A', 'B', 'C', 'D', 'E', 'F'].slice(0, numChoices);
 
-  // For a scantron, how many columns? E.g., 3 columns for 1-20, 21-40, 41-60
   let groupSize = 20;
   if (numItems <= 30) groupSize = 10;
   else if (numItems <= 60) groupSize = 20;
@@ -31,9 +31,7 @@ function AnswerKey({ examData: propExamData }) {
   else groupSize = 30;
   const numGroups = Math.ceil(numItems / groupSize);
 
-  // Build a flat grid: header row, then answer rows
   const gridRows = [];
-  // Header row
   for (let g = 0; g < numGroups; g++) {
     gridRows.push(<span className="scantron-header-number" key={`hnum${g}`}></span>);
     choiceLabels.forEach((choice, cidx) => {
@@ -41,17 +39,14 @@ function AnswerKey({ examData: propExamData }) {
         <span className="scantron-header-choice" key={`h${g}-${choice}`}>{choice}</span>
       );
     });
-    // Add spacer after each group (except the last one)
     if (g < numGroups - 1) {
       gridRows.push(<span className="scantron-spacer" key={`hspacer${g}`}></span>);
     }
   }
-  // Answer rows
   for (let i = 0; i < groupSize; i++) {
     for (let g = 0; g < numGroups; g++) {
       const qNum = g * groupSize + i + 1;
       if (qNum > numItems) {
-        // Fill empty cells for incomplete last group
         gridRows.push(<span className="scantron-qnum-empty" key={`empty${g}-${i}`}></span>);
         choiceLabels.forEach((choice, cidx) => {
           gridRows.push(<span className="scantron-bubble-empty" key={`empty${g}-${i}-${choice}`}></span>);
@@ -74,14 +69,12 @@ function AnswerKey({ examData: propExamData }) {
           );
         });
       }
-      // Add spacer after each group (except the last one)
       if (g < numGroups - 1) {
         gridRows.push(<span className="scantron-spacer" key={`spacer${g}-${i}`}></span>);
       }
     }
   }
 
-  // Grid template: (number + choices) * numGroups with spacers
   const groupColumns = [`minmax(28px,32px)`, ...Array(numChoices).fill('24px')].join(' ');
   const gridTemplateColumns = Array(numGroups)
     .fill(groupColumns)

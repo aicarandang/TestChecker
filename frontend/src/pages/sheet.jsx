@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import '../styles/styles.css';
+import '../styles/sidebar.css';
+import '../styles/sheet.css';
 
 function AnswerSheet() {
   const [examType, setExamType] = useState('');
