@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import '../styles/styles.css';
+import AnswerKey from './answer';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 const NAV_TABS = [
   { key: 'generate', label: 'Generate Sheet' },
@@ -37,6 +40,126 @@ function GenerateSheet() {
     const textarea = e.target;
     textarea.style.height = 'auto';
     textarea.style.height = textarea.scrollHeight + 'px';
+  };
+
+  const handleGeneratePDF = () => {
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    let yStart = 48;
+
+    // Helper to render header, info boxes, and instructions
+    function renderHeader(y) {
+      doc.setFont('times', 'bold');
+      doc.setFontSize(16);
+      doc.text(form.examType || 'EXAMINATION', pageWidth / 2, y, { align: 'center' });
+      y += 22;
+      doc.setFontSize(13);
+      doc.text(form.subjectName || 'Subject Name', pageWidth / 2, y, { align: 'center' });
+      y += 18;
+      doc.setFont('times', 'normal');
+      doc.setFontSize(12);
+      doc.text(form.academicTerm || 'TERM, S.Y. 20XX - 20XX', pageWidth / 2, y, { align: 'center' });
+      y += 28;
+      // Info boxes
+      const boxWidth = (pageWidth - 96) / 2;
+      doc.setFontSize(11);
+      doc.setLineWidth(1);
+      doc.rect(48, y, boxWidth, 24);
+      doc.text('NAME:', 54, y + 16);
+      doc.rect(48 + boxWidth, y, boxWidth, 24);
+      doc.text('DATE:', 54 + boxWidth, y + 16);
+      y += 24;
+      doc.rect(48, y, boxWidth, 24);
+      doc.text('COURSE/SECTION:', 54, y + 16);
+      doc.rect(48 + boxWidth, y, boxWidth, 24);
+      doc.text('SCORE:', 54 + boxWidth, y + 16);
+      y += 36;
+      // Instructions
+      doc.setFont('times', 'normal');
+      doc.setFontSize(11);
+      doc.text(
+        'Test I: Shade the circle that correspond to the letter of your chosen answer. Any kind of erasure or overwriting will invalidate your answer.',
+        48,
+        y,
+        { maxWidth: pageWidth - 96 }
+      );
+      y += 48;
+      return y;
+    }
+
+    // --- Scantron Grid ---
+    const numItems = parseInt(form.numItems) || 50;
+    const numChoices = parseInt(form.numChoices) || 4;
+    const choiceLabels = ['A', 'B', 'C', 'D', 'E', 'F'].slice(0, numChoices);
+    // Group logic (same as answer key)
+    let groupSize = 20;
+    if (numItems <= 30) groupSize = 10;
+    else if (numItems <= 60) groupSize = 20;
+    else if (numItems <= 100) groupSize = 25;
+    else groupSize = 30;
+    const groupGap = 32; // px between groups
+    const bubbleR = 7; // px radius (smaller)
+    const rowH = 22; // px row height (smaller)
+    const colW = 20; // px per bubble (smaller)
+    const numW = 20; // px for number (smaller)
+    // Split questions into pages of 50
+    let pageStart = 1;
+    let page = 0;
+    const pageMargin = 8;
+    while (pageStart <= numItems) {
+      if (page > 0) doc.addPage();
+      let y = renderHeader(yStart);
+      const pageEnd = Math.min(pageStart + 50 - 1, numItems);
+      const pageQuestions = pageEnd - pageStart + 1;
+      // Determine groups for this page
+      let localGroupSize = groupSize;
+      if (pageQuestions <= 30) localGroupSize = 10;
+      else if (pageQuestions <= 60) localGroupSize = 20;
+      else if (pageQuestions <= 100) localGroupSize = 25;
+      else localGroupSize = 30;
+      const numGroups = Math.ceil(pageQuestions / localGroupSize);
+      const groupWidth = numW + numChoices * colW;
+      const gridWidth = numGroups * groupWidth + (numGroups - 1) * groupGap;
+      const gridStartX = (pageWidth - gridWidth) / 2;
+      // Header row
+      let yGrid = y;
+      for (let g = 0; g < numGroups; g++) {
+        let x = gridStartX + g * (groupWidth + groupGap);
+        choiceLabels.forEach((label, cidx) => {
+          doc.setFont('times', 'bold');
+          doc.setFontSize(13);
+          doc.text(label, x + numW + cidx * colW + colW / 2, yGrid, { align: 'center' });
+        });
+      }
+      yGrid += 10;
+      // Rows
+      for (let i = 0; i < localGroupSize; i++) {
+        for (let g = 0; g < numGroups; g++) {
+          const qNum = pageStart + g * localGroupSize + i;
+          if (qNum > pageEnd) continue;
+          let x = gridStartX + g * (groupWidth + groupGap);
+          let yRow = yGrid + i * rowH;
+          doc.setFont('times', 'normal');
+          doc.setFontSize(11);
+          // Center number horizontally and align it lower, closer to the bottom of the circles
+          const cx = x + numW / 2;
+          const cy = yRow + bubbleR + 5;
+          doc.text(`${qNum}.`, cx, cy + bubbleR - 1, { align: 'center' });
+          // Only draw circles for the answer choices
+          for (let cidx = 0; cidx < numChoices; cidx++) {
+            doc.setLineWidth(1);
+            doc.circle(x + numW + cidx * colW + colW / 2, yRow + bubbleR + 5, bubbleR, 'S');
+          }
+        }
+      }
+      // Outer border fills nearly the whole page
+      doc.setLineWidth(2);
+      doc.rect(pageMargin, pageMargin, pageWidth - 2 * pageMargin, pageHeight - 2 * pageMargin);
+      pageStart += 50;
+      page++;
+    }
+    doc.save('answer-sheet.pdf');
   };
 
   return (
@@ -188,12 +311,14 @@ function GenerateSheet() {
                 </div>
               </div>
               <div className="answer-sheet-btn-row">
-                <button className="answer-sheet-create-btn" type="button">Generate Answer Sheet</button>
+                <button className="answer-sheet-create-btn" type="button" onClick={handleGeneratePDF}>
+                  Generate Answer Sheet PDF
+                </button>
               </div>
             </form>
           )}
           {activeTab === 'answer' && (
-            <div className="tab-placeholder">[Placeholder] Define the answer key here.</div>
+            <AnswerKey examData={form} />
           )}
           {activeTab === 'upload' && (
             <div className="tab-placeholder">[Placeholder] Upload scanned sheets here.</div>

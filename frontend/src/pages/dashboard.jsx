@@ -12,11 +12,15 @@ function Dashboard() {
           <button className="new-answer-sheet-btn" disabled>+ New Answer Sheet</button>
         </aside>
         <main className="dashboard-content">
-          <h1 className="dashboard-title">TEST CHECKER</h1>
-          <p className="dashboard-subtitle">Create sheets. Upload scans. Get results.</p>
-          <button className="dashboard-create-btn" onClick={() => navigate('/answersheet')}>
-            Create Answer Sheet
-          </button>
+          <div className="dashboard-header">
+            <h1 className="dashboard-title">TEST CHECKER</h1>
+            <p className="dashboard-subtitle">Create sheets. Upload scans. Get results.</p>
+          </div>
+          <div className="dashboard-main">
+            <button className="dashboard-create-btn" onClick={() => navigate('/answersheet')}>
+              Create Answer Sheet
+            </button>
+          </div>
         </main>
       </div>
     </div>
