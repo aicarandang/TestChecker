@@ -1,0 +1,116 @@
+.scantronSheetOuter {
+  flex: 1 1 0;
+  width: 100%;
+  height: 100%;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px 0 rgba(0,0,0,0.04);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-start;
+  padding: 0 0 24px 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+.scantronSheetGrid {
+  flex: 1 1 0;
+  width: 100%;
+  padding: 12px 0 0 0;
+  background: #fff;
+  display: grid;
+  align-items: center;
+  justify-content: center;
+  row-gap: 8px;
+  column-gap: 28px;
+}
+
+.scantronQnum, .scantronHeaderNumber {
+  font-size: 1.08rem;
+  font-weight: 500;
+  color: #222;
+  text-align: right;
+  padding-right: 4px;
+  min-width: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.scantronHeaderChoice {
+  font-size: 1.08rem;
+  font-weight: 700;
+  color: #222;
+  text-align: center;
+  min-width: 24px;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scantronChoiceBtn {
+  background: none;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  padding: 0;
+  margin: 0 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  transition: box-shadow 0.15s;
+}
+.scantronChoiceBtn.selected .scantronChoiceCircle {
+  background: #222 !important;
+  border: 2.5px solid #222 !important;
+}
+.scantronChoiceBtn:focus .scantronChoiceCircle {
+  box-shadow: 0 0 0 2px #b6a97a;
+}
+
+.scantronChoiceCircle {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2.5px solid #222;
+  background: #fff;
+  display: block;
+  transition: background 0.15s, border 0.15s;
+}
+
+.scantronSheetFooter {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 32px 0 0;
+  margin-top: 16px;
+}
+
+.bubbleSaveBtn {
+  font-size: 1rem;
+  padding: 8px 20px;
+  font-weight: 500;
+  color: #222;
+  border: 1.5px solid #b6a97a;
+  border-radius: 6px;
+  background: #f6eac2;
+  cursor: pointer;
+  transition: background 0.2s, border 0.2s;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+}
+.bubbleSaveBtn:hover {
+  background: #f3e3a7;
+  border-color: #a89c6a;
+}
+
+.scantronSpacer, .scantronQnumEmpty, .scantronBubbleEmpty {
+  width: 24px;
+  height: 24px;
+  display: inline-block;
+}
+ 

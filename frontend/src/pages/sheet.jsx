@@ -109,32 +109,32 @@ function AnswerSheet() {
                 <div className={styles['answer-sheet-col']}>
                   <label htmlFor="examType">Exam Type <span className={styles['required']}>*</span></label>
                   <div className={styles['custom-select-container']} ref={examDropdownRef}>
-                    <input 
+                  <input 
                       className={`${styles['input']} ${styles['custom-select-input']}`}
-                      id="examType"
-                      type="text"
-                      value={examType}
-                      onChange={(e) => setExamType(e.target.value)}
-                      placeholder="MIDTERM EXAMINATION"
-                      required 
+                    id="examType" 
+                    type="text" 
+                    value={examType}
+                    onChange={(e) => setExamType(e.target.value)}
+                    placeholder="MIDTERM EXAMINATION"
+                    required 
                       autoComplete="off"
-                    />
+                  />
                     <button type="button" className={styles['custom-select-arrow']} onClick={handleDropdownToggle}>
-                      <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                        <path stroke="#6b7280" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M6 8l4 4 4-4"/>
-                      </svg>
-                    </button>
-                    {showDropdown && (
+                    <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                      <path stroke="#6b7280" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M6 8l4 4 4-4"/>
+                    </svg>
+                  </button>
+                  {showDropdown && (
                       <div className={styles['custom-select-dropdown']}>
-                        {examOptions.map((option) => (
+                      {examOptions.map((option) => (
                           <div key={option} className={styles['custom-select-option']} onClick={() => handleExamTypeSelect(option)}>
-                            {option}
-                          </div>))}
-                      </div>)}
-                  </div>
+                          {option}
+                        </div>))}
+                    </div>)}
                 </div>
+              </div>
                 <div className={styles['answer-sheet-col']}>
-                  <label htmlFor="academicTerm">Academic Term</label>
+                <label htmlFor="academicTerm">Academic Term</label>
                   <input className={styles['input']} id="academicTerm" type="text" placeholder="1ST SEM, S.Y. 20XX - 20XX" value={academicTerm} onChange={e => setAcademicTerm(e.target.value)} autoComplete="off" />
                 </div>
               </div>
@@ -160,35 +160,35 @@ function AnswerSheet() {
                     <input className={styles['input']} type="text" placeholder="Score:" disabled />
                   </div>
                 </div>
-              </div> 
+              </div>
               <div className={styles['form-group']}>
-                <label htmlFor="testDirections">Test Directions</label>
-                <textarea 
+              <label htmlFor="testDirections">Test Directions</label>
+              <textarea 
                   className={styles['input']} 
-                  id="testDirections" 
+                id="testDirections" 
                   rows={3} 
-                  onInput={handleTextareaResize}
-                  placeholder="Enter test directions..."
-                  value={testDirections}
-                  onChange={e => setTestDirections(e.target.value)}
+                onInput={handleTextareaResize}
+                placeholder="Enter test directions..."
+                value={testDirections}
+                onChange={e => setTestDirections(e.target.value)}
                   autoComplete="off"
-                />
-              </div>  
+              />
+            </div>  
               <div className={styles['answer-sheet-row']}>
                 <div className={styles['answer-sheet-col']}>
                   <label htmlFor="numItems">Number of Items <span className={styles['required']}>*</span></label>
-                  <input 
+                <input 
                     className={styles['input']} 
-                    id="numItems" 
-                    type="number" 
-                    min="1" 
-                    max="300"
-                    placeholder="50"
-                    required 
-                    value={numItems}
-                    onChange={e => setNumItems(e.target.value)}
+                  id="numItems" 
+                  type="number" 
+                  min="1" 
+                  max="300"
+                  placeholder="50"
+                  required 
+                  value={numItems}
+                  onChange={e => setNumItems(e.target.value)}
                     autoComplete="off"
-                  />
+                />
                 </div>
                 <div className={styles['answer-sheet-col']}>
                   <label htmlFor="numChoices">Number of Choices <span className={styles['required']}>*</span></label>
@@ -227,7 +227,7 @@ function AnswerSheet() {
                 <button className={styles['answer-sheet-create-btn']} type="submit">Create Answer Sheet</button>
               </div>
             </form>
-          </div>
+            </div>
         </main>
       </div>
     </div>

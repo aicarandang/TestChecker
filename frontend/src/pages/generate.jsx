@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import '../styles/sidebar.css';
 import styles from '../styles/generate.module.css';
@@ -23,7 +23,7 @@ function GenerateSheet() {
     examType: initialData.examType || '',
     academicTerm: initialData.academicTerm || '',
     subjectName: initialData.subjectName || '',
-    testDirections: initialData.testDirections || '',
+    testDirections: localStorage.getItem('testDirections') || initialData.testDirections || '',
     numItems: initialData.numItems || '',
     numChoices: initialData.numChoices || '',
   });
@@ -39,6 +39,66 @@ function GenerateSheet() {
   ];
   const examDropdownRef = React.useRef(null);
   const choicesDropdownRef = React.useRef(null);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const testDirectionsRef = useRef(null);
+
+  // Helper to get minimum height for 2 rows
+  const getMinHeight = () => {
+    // Create a temporary textarea to measure 2 rows
+    const temp = document.createElement('textarea');
+    temp.rows = 2;
+    temp.style.visibility = 'hidden';
+    temp.style.position = 'absolute';
+    temp.style.height = 'auto';
+    temp.style.padding = '0';
+    temp.style.border = 'none';
+    temp.style.font = 'inherit';
+    document.body.appendChild(temp);
+    const minHeight = temp.scrollHeight;
+    document.body.removeChild(temp);
+    return minHeight;
+  };
+
+  // Restore height from localStorage if available on initial mount
+  useEffect(() => {
+    if (testDirectionsRef.current) {
+      const savedHeight = localStorage.getItem('testDirectionsHeight');
+      if (savedHeight) {
+        testDirectionsRef.current.style.height = savedHeight + 'px';
+      } else {
+        // Set to min height for 2 rows
+        const minHeight = getMinHeight();
+        testDirectionsRef.current.style.height = minHeight + 'px';
+      }
+    }
+  }, []);
+
+  // Restore height every time the generate tab becomes active
+  useEffect(() => {
+    if (activeTab === 'generate' && testDirectionsRef.current) {
+      const savedHeight = localStorage.getItem('testDirectionsHeight');
+      if (savedHeight) {
+        testDirectionsRef.current.style.height = savedHeight + 'px';
+      } else {
+        const minHeight = getMinHeight();
+        testDirectionsRef.current.style.height = minHeight + 'px';
+      }
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (testDirectionsRef.current) {
+      // Always auto-resize to fit content, but never less than 2 rows
+      testDirectionsRef.current.style.height = 'auto';
+      const minHeight = getMinHeight();
+      const newHeight = Math.max(testDirectionsRef.current.scrollHeight, minHeight);
+      testDirectionsRef.current.style.height = newHeight + 'px';
+      // Persist height
+      localStorage.setItem('testDirectionsHeight', newHeight);
+    }
+    // Persist testDirections in localStorage
+    localStorage.setItem('testDirections', form.testDirections);
+  }, [form.testDirections]);
 
   React.useEffect(() => {
     function handleClickOutside(event) {
@@ -58,6 +118,9 @@ function GenerateSheet() {
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+    if (name === 'testDirections') {
+      handleTextareaResize(e);
+    }
   };
 
   const handleNameEdit = () => setEditingName(true);
@@ -80,16 +143,46 @@ function GenerateSheet() {
   const handleTextareaResize = (e) => {
     const textarea = e.target;
     textarea.style.height = 'auto';
-    textarea.style.height = textarea.scrollHeight + 'px';
+    const minHeight = getMinHeight();
+    const newHeight = Math.max(textarea.scrollHeight, minHeight);
+    textarea.style.height = newHeight + 'px';
+    // Persist height
+    localStorage.setItem('testDirectionsHeight', newHeight);
+  };
+
+  const handleFormSubmit = (e) => {
+    e.preventDefault();
+    setSubmitAttempted(true);
+    if (!form.examType || !form.subjectName || !form.testDirections || !form.numItems || !form.numChoices) {
+      return;
+    }
+    handleGeneratePDF();
   };
 
   const handleGeneratePDF = () => {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    let yStart = 48;
+    const pageMargin = 8;
+    const yStart = 48;
+    const maxItemsPerPage = 50;
+    const itemsPerColumn = 25;
+    const groupGap = 32;
+    const bubbleR = 7;
+    const rowH = 22;
+    const colW = 20;
+    const numW = 20;
+    const gridTopGap = 10;
+    const gridBottomGap = 10;
+    const directionsGap = 8;
 
-    function renderHeader(y) {
+    const numItems = parseInt(form.numItems) || 50;
+    const numChoices = parseInt(form.numChoices) || 4;
+    const choiceLabels = ['A', 'B', 'C', 'D', 'E', 'F'].slice(0, numChoices);
+    const testDirectionsText = form.testDirections || 'Test I: Shade the circle that correspond to the letter of your chosen answer. Any kind of erasure or overwriting will invalidate your answer.';
+
+    // Helper to render header and directions, returns new y after rendering
+    function renderHeaderAndDirections(doc, y) {
       doc.setFont('times', 'bold');
       doc.setFontSize(16);
       doc.text(form.examType || 'EXAMINATION', pageWidth / 2, y, { align: 'center' });
@@ -116,76 +209,70 @@ function GenerateSheet() {
       y += 36;
       doc.setFont('times', 'normal');
       doc.setFontSize(11);
-      doc.text(
-        form.testDirections || 'Test I: Shade the circle that correspond to the letter of your chosen answer. Any kind of erasure or overwriting will invalidate your answer.',
-        48,
-        y,
-        { maxWidth: pageWidth - 96 }
-      );
-      y += 48;
+      y += directionsGap;
+      const wrapped = doc.splitTextToSize(testDirectionsText, pageWidth - 96);
+      doc.text(wrapped, 48, y, { maxWidth: pageWidth - 96 });
+      const lineHeight = doc.getTextDimensions('Test')["h"] || 13;
+      const textHeight = wrapped.length * lineHeight;
+      y += textHeight;
+      y += directionsGap;
       return y;
     }
 
-    const numItems = parseInt(form.numItems) || 50;
-    const numChoices = parseInt(form.numChoices) || 4;
-    const choiceLabels = ['A', 'B', 'C', 'D', 'E', 'F'].slice(0, numChoices);
-    let groupSize = 20;
-    if (numItems <= 30) groupSize = 10;
-    else if (numItems <= 60) groupSize = 20;
-    else if (numItems <= 100) groupSize = 25;
-    else groupSize = 30;
-    const groupGap = 32; 
-    const bubbleR = 7; 
-    const rowH = 22; 
-    const colW = 20; 
-    const numW = 20; 
-    let pageStart = 1;
-    let page = 0;
-    const pageMargin = 8;
-    while (pageStart <= numItems) {
-      if (page > 0) doc.addPage();
-      let y = renderHeader(yStart);
-      const pageEnd = Math.min(pageStart + 50 - 1, numItems);
-      const pageQuestions = pageEnd - pageStart + 1;
-      let localGroupSize = groupSize;
-      if (pageQuestions <= 30) localGroupSize = 10;
-      else if (pageQuestions <= 60) localGroupSize = 20;
-      else if (pageQuestions <= 100) localGroupSize = 25;
-      else localGroupSize = 30;
-      const numGroups = Math.ceil(pageQuestions / localGroupSize);
-      const groupWidth = numW + numChoices * colW;
-      const gridWidth = numGroups * groupWidth + (numGroups - 1) * groupGap;
-      const gridStartX = (pageWidth - gridWidth) / 2;
-      let yGrid = y;
-      for (let g = 0; g < numGroups; g++) {
-        let x = gridStartX + g * (groupWidth + groupGap);
-        choiceLabels.forEach((label, cidx) => {
-          doc.setFont('times', 'bold');
-          doc.setFontSize(13);
-          doc.text(label, x + numW + cidx * colW + colW / 2, yGrid, { align: 'center' });
-        });
-      }
-      yGrid += 10;
-      for (let i = 0; i < localGroupSize; i++) {
-        for (let g = 0; g < numGroups; g++) {
-          const qNum = pageStart + g * localGroupSize + i;
-          if (qNum > pageEnd) continue;
-          let x = gridStartX + g * (groupWidth + groupGap);
-          let yRow = yGrid + i * rowH;
-          doc.setFont('times', 'normal');
-          doc.setFontSize(11);
-          const cx = x + numW / 2;
-          const cy = yRow + bubbleR + 5;
-          doc.text(`${qNum}.`, cx, cy + bubbleR - 1, { align: 'center' });
-          for (let cidx = 0; cidx < numChoices; cidx++) {
-            doc.setLineWidth(1);
-            doc.circle(x + numW + cidx * colW + colW / 2, yRow + bubbleR + 5, bubbleR, 'S');
-          }
-        }
-      }
+    function renderBorder(doc) {
       doc.setLineWidth(2);
       doc.rect(pageMargin, pageMargin, pageWidth - 2 * pageMargin, pageHeight - 2 * pageMargin);
-      pageStart += 50;
+    }
+
+    function renderAnswerGrid(doc, y, startNum, endNum) {
+      const col1Start = startNum;
+      const col1End = Math.min(startNum + itemsPerColumn - 1, endNum);
+      const col2Start = col1End + 1;
+      const col2End = endNum;
+      const colX = [60, pageWidth / 2 + 10];
+      let maxY = y;
+      [
+        [col1Start, col1End, colX[0]],
+        [col2Start, col2End, colX[1]]
+      ].forEach(([from, to, x]) => {
+        for (let i = from; i <= to; i++) {
+          const yRow = y + (i - from) * rowH;
+          doc.setFont('times', 'normal');
+          doc.setFontSize(11);
+          doc.text(`${i}.`, x, yRow + bubbleR + 5, { align: 'left' });
+          for (let cidx = 0; cidx < numChoices; cidx++) {
+            doc.setLineWidth(1);
+            doc.circle(x + 30 + cidx * colW, yRow + bubbleR + 5, bubbleR, 'S');
+          }
+          maxY = Math.max(maxY, yRow + bubbleR * 2 + 5);
+        }
+      });
+      return maxY + gridBottomGap;
+    }
+
+    let page = 0;
+    let itemNum = 1;
+    while (itemNum <= numItems) {
+      if (page > 0) doc.addPage();
+      renderBorder(doc);
+      let y = renderHeaderAndDirections(doc, yStart);
+      if (y + rowH + gridBottomGap > pageHeight - pageMargin) {
+        doc.addPage();
+        renderBorder(doc);
+        y = renderHeaderAndDirections(doc, yStart);
+      }
+      let pageEnd = Math.min(itemNum + maxItemsPerPage - 1, numItems);
+      let gridHeight = (Math.min(pageEnd, itemNum + itemsPerColumn - 1) - itemNum + 1) * rowH;
+      if (pageEnd > itemNum + itemsPerColumn - 1) {
+        gridHeight = Math.max(gridHeight, (pageEnd - (itemNum + itemsPerColumn) + 1) * rowH);
+      }
+      if (y + gridHeight + gridBottomGap > pageHeight - pageMargin) {
+        doc.addPage();
+        renderBorder(doc);
+        y = renderHeaderAndDirections(doc, yStart);
+      }
+      const yAfterGrid = renderAnswerGrid(doc, y, itemNum, pageEnd);
+      itemNum = pageEnd + 1;
       page++;
     }
     doc.save('answer-sheet.pdf');
@@ -196,7 +283,7 @@ function GenerateSheet() {
       <div className={styles['generate-sheet-container']}>
         <aside className="sidebar">
           <h2>Dashboard</h2>
-          <button className="new-answer-sheet-btn">+ New Answer Set</button>
+          <button className="new-answer-sheet-btn">+ New Answer Sheet</button>
           <div className="sidebar-answer-list">
             <div className="sidebar-answer-item" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               {editingName ? (
@@ -239,24 +326,25 @@ function GenerateSheet() {
             ))}
           </nav>
           <div className={styles['generate-sheet-scrollable']}>
-            {activeTab === 'generate' && (
-              <form className={styles['generate-sheet-form']} autoComplete="off">
+          {activeTab === 'generate' && (
+              <form className={styles['generate-sheet-form']} autoComplete="off" onSubmit={handleFormSubmit}>
                 <div className={styles['generate-sheet-row']}>
                   <div className={styles['generate-sheet-col']}>
                     <label htmlFor="examType">Exam Type <span className={styles['required']}>*</span></label>
                     <div className={styles['custom-select-container']} ref={examDropdownRef}>
-                      <input
+                  <input
                         className={`${styles['input']} ${styles['custom-select-input']}`}
-                        id="examType"
-                        name="examType"
-                        type="text"
-                        value={form.examType}
-                        onChange={handleFormChange}
-                        placeholder="MIDTERM EXAMINATION"
-                        required
+                    id="examType"
+                    name="examType"
+                    type="text"
+                    value={form.examType}
+                    onChange={handleFormChange}
                         autoComplete="off"
                         onClick={() => setShowExamDropdown(true)}
                       />
+                      {submitAttempted && !form.examType && (
+                        <div style={{ color: '#dc3545', fontSize: '0.97rem', marginTop: 2 }}>Exam Type is required.</div>
+                      )}
                       <button type="button" className={styles['custom-select-arrow']} onClick={() => setShowExamDropdown((v) => !v)}>
                         <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
                           <path stroke="#6b7280" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M6 8l4 4 4-4"/>
@@ -272,35 +360,35 @@ function GenerateSheet() {
                         </div>
                       )}
                     </div>
-                  </div>
-                  <div className={styles['generate-sheet-col']}>
-                    <label htmlFor="academicTerm">Academic Term</label>
-                    <input
-                      className={styles['input']}
-                      id="academicTerm"
-                      name="academicTerm"
-                      type="text"
-                      value={form.academicTerm}
-                      onChange={handleFormChange}
-                      placeholder="1ST SEM, S.Y. 20XX - 20XX"
-                      autoComplete="off"
-                    />
-                  </div>
                 </div>
+                  <div className={styles['generate-sheet-col']}>
+                  <label htmlFor="academicTerm">Academic Term</label>
+                  <input
+                      className={styles['input']}
+                    id="academicTerm"
+                    name="academicTerm"
+                    type="text"
+                    value={form.academicTerm}
+                    onChange={handleFormChange}
+                      autoComplete="off"
+                  />
+                </div>
+              </div>
                 <div className={styles['generate-sheet-row']}>
                   <div className={styles['generate-sheet-col']} style={{ width: '100%' }}>
                     <label htmlFor="subjectName">Subject Name <span className={styles['required']}>*</span></label>
-                    <input
+                <input
                       className={styles['input']}
-                      id="subjectName"
-                      name="subjectName"
-                      type="text"
-                      value={form.subjectName}
-                      onChange={handleFormChange}
-                      placeholder="ACC 310 - Auditing and Assurance Principles..."
-                      required
+                  id="subjectName"
+                  name="subjectName"
+                  type="text"
+                  value={form.subjectName}
+                  onChange={handleFormChange}
                       autoComplete="off"
                     />
+                    {submitAttempted && !form.subjectName && (
+                      <div style={{ color: '#dc3545', fontSize: '0.97rem', marginTop: 2 }}>Subject Name is required.</div>
+                    )}
                   </div>
                 </div>
                 <div className={styles['form-group']}>
@@ -324,35 +412,39 @@ function GenerateSheet() {
                 </div>
                 <div className={styles['form-group']}>
                   <label htmlFor="testDirections">Test Directions <span className={styles['required']}>*</span></label>
-                  <textarea
+                <textarea
                     className={styles['input']}
-                    id="testDirections"
-                    name="testDirections"
-                    rows={2}
+                  id="testDirections"
+                  name="testDirections"
+                  rows={2}
                     onInput={handleTextareaResize}
-                    placeholder="Test I: Shade the circle that correspond to the letter of your chosen answer. Any kind of erasure or overwriting will invalidate your answer."
-                    value={form.testDirections}
                     onChange={handleFormChange}
-                    required
+                  value={form.testDirections}
                     autoComplete="off"
+                    style={{overflow: 'hidden', resize: 'none'}}
+                    ref={testDirectionsRef}
                   />
-                </div>
+                  {submitAttempted && !form.testDirections && (
+                    <div style={{ color: '#dc3545', fontSize: '0.97rem', marginTop: 2 }}>Test Directions are required.</div>
+                  )}
+              </div>
                 <div className={styles['generate-sheet-row']}>
                   <div className={styles['generate-sheet-col']}>
                     <label htmlFor="numItems">Number of Items <span className={styles['required']}>*</span></label>
-                    <input
+                  <input
                       className={styles['input']}
-                      id="numItems"
-                      name="numItems"
-                      type="number"
-                      min="1"
-                      max="300"
-                      placeholder="50"
-                      required
-                      value={form.numItems}
-                      onChange={handleFormChange}
+                    id="numItems"
+                    name="numItems"
+                    type="number"
+                    min="1"
+                    max="300"
+                    value={form.numItems}
+                    onChange={handleFormChange}
                       autoComplete="off"
-                    />
+                  />
+                    {submitAttempted && !form.numItems && (
+                      <div style={{ color: '#dc3545', fontSize: '0.97rem', marginTop: 2 }}>Number of Items is required.</div>
+                    )}
                   </div>
                   <div className={styles['generate-sheet-col']}>
                     <label htmlFor="numChoices">Number of Choices <span className={styles['required']}>*</span></label>
@@ -364,13 +456,14 @@ function GenerateSheet() {
                         type="text"
                         value={form.numChoices ? `${form.numChoices} (${['A','B','C','D','E','F'].slice(0, Number(form.numChoices)).join(', ')})` : ''}
                         onChange={() => {}}
-                        placeholder="Select number of choices"
-                        required
                         readOnly
                         onClick={handleChoicesDropdownToggle}
                         style={{ cursor: 'pointer' }}
                         autoComplete="off"
                       />
+                      {submitAttempted && !form.numChoices && (
+                        <div style={{ color: '#dc3545', fontSize: '0.97rem', marginTop: 2 }}>Number of Choices is required.</div>
+                      )}
                       <button type="button" className={styles['custom-select-arrow']} onClick={handleChoicesDropdownToggle}>
                         <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
                           <path stroke="#6b7280" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M6 8l4 4 4-4"/>
@@ -389,21 +482,29 @@ function GenerateSheet() {
                   </div>
                 </div>
                 <div className={styles['generate-sheet-btn-row']}>
-                  <button className={styles['generate-sheet-create-btn']} type="button" onClick={handleGeneratePDF}>
+                  <button className={styles['generate-sheet-create-btn']} type="submit"
+                    disabled={
+                      !form.examType ||
+                      !form.subjectName ||
+                      !form.testDirections ||
+                      !form.numItems ||
+                      !form.numChoices
+                    }
+                  >
                     Generate Answer Sheet
-                  </button>
-                </div>
-              </form>
-            )}
-            {activeTab === 'answer' && (
-              <AnswerKey examData={form} />
-            )}
-            {activeTab === 'upload' && (
-              <div className="tab-placeholder">[Placeholder] Upload scanned sheets here.</div>
-            )}
-            {activeTab === 'results' && (
-              <div className="tab-placeholder">[Placeholder] View results here.</div>
-            )}
+                </button>
+              </div>
+            </form>
+          )}
+          {activeTab === 'answer' && (
+            <AnswerKey examData={form} />
+          )}
+          {activeTab === 'upload' && (
+            <div className="tab-placeholder">[Placeholder] Upload scanned sheets here.</div>
+          )}
+          {activeTab === 'results' && (
+            <div className="tab-placeholder">[Placeholder] View results here.</div>
+          )}
           </div>
         </main>
       </div>

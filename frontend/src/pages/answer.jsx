@@ -55,19 +55,26 @@ function AnswerKey({ examData: propExamData }) {
         gridRows.push(
           <span className={styles.scantronQnum} key={`qnum${qNum}`}>{qNum}.</span>
         );
-        choiceLabels.forEach((choice, cidx) => {
           gridRows.push(
+          <span key={`radiogroup-${qNum}`} role="radiogroup" aria-label={`Choices for question ${qNum}`} style={{ display: 'contents' }}>
+            {choiceLabels.map((choice, cidx) => (
             <button
               key={`b${qNum}-${choice}`}
-              className={`${styles.scantronChoiceBtn}${answerKey[qNum] === choice ? ' selected' : ''}`}
+                className={
+                  styles.scantronChoiceBtn + (answerKey[qNum] === choice ? ' ' + styles.selected : '')
+                }
               onClick={() => handleAnswerSelect(qNum, choice)}
               type="button"
+                role="radio"
+                aria-checked={answerKey[qNum] === choice}
               aria-label={`Set answer for question ${qNum} to ${choice}`}
+                tabIndex={answerKey[qNum] === choice ? 0 : -1}
             >
-              <span className={styles.scantronChoiceCircle}></span>
+                <span className={styles.scantronChoiceCircle}></span>
             </button>
+            ))}
+          </span>
           );
-        });
       }
       if (g < numGroups - 1) {
         gridRows.push(<span className={styles.scantronSpacer} key={`spacer${g}-${i}`}></span>);
@@ -95,8 +102,6 @@ function AnswerKey({ examData: propExamData }) {
         style={{
           display: 'grid',
           gridTemplateColumns,
-          rowGap: '8px',
-          columnGap: '0',
           justifyContent: 'center',
           alignItems: 'center',
         }}
