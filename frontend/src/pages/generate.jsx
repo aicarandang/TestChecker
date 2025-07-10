@@ -654,40 +654,7 @@ function GenerateSheet() {
           {activeTab === 'answer' && (
             <AnswerKey examData={sheets.find(s => s.id === selectedSheetId)?.form} />
           )}
-          {activeTab === 'upload' && (
-            <div>
-              <div
-                className={
-                  styles.uploadDropZone + (isDragActive ? ' ' + styles.uploadDropZoneActive : '')
-                }
-                onDrop={handleDrop}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onClick={handleClickDropZone}
-              >
-                <input
-                  type="file"
-                  multiple
-                  ref={fileInputRef}
-                  style={{ display: 'none' }}
-                  onChange={handleFileChange}
-                />
-                <div style={{ pointerEvents: 'none' }}>
-                  <strong>Drag and drop files here</strong> or click to select
-                </div>
-              </div>
-              {uploadedFiles.length > 0 && (
-                <div className={styles.uploadFileList}>
-                  <h4>Selected Files:</h4>
-                  <ul>
-                    {uploadedFiles.map((file, idx) => (
-                      <li key={file.name + idx}>{file.name}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
+          {activeTab === 'upload' && <UploadSheets />}
           {activeTab === 'results' && (
             <ResultsTab />
           )}
