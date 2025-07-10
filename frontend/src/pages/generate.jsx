@@ -5,6 +5,7 @@ import styles from '../styles/generate.module.css';
 import AnswerKey from './answer';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import UploadSheets from './upload';
 
 const NAV_TABS = [
   { key: 'generate', label: 'Generate Sheet' },
@@ -41,32 +42,6 @@ function GenerateSheet() {
   const choicesDropdownRef = React.useRef(null);
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const testDirectionsRef = useRef(null);
-  // Add state for drag-and-drop upload
-  const [uploadedFiles, setUploadedFiles] = useState([]);
-  const [isDragActive, setIsDragActive] = useState(false);
-  const fileInputRef = useRef(null);
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setIsDragActive(false);
-    const files = Array.from(e.dataTransfer.files);
-    setUploadedFiles((prev) => [...prev, ...files]);
-  };
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    setIsDragActive(true);
-  };
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    setIsDragActive(false);
-  };
-  const handleFileChange = (e) => {
-    const files = Array.from(e.target.files);
-    setUploadedFiles((prev) => [...prev, ...files]);
-  };
-  const handleClickDropZone = () => {
-    fileInputRef.current?.click();
-  };
 
   // Helper to get minimum height for 2 rows
   const getMinHeight = () => {
@@ -562,45 +537,74 @@ function GenerateSheet() {
             <AnswerKey examData={form} />
           )}
           {activeTab === 'upload' && (
-            <div>
-              <div
-                className={
-                  styles.uploadDropZone + (isDragActive ? ' ' + styles.uploadDropZoneActive : '')
-                }
-                onDrop={handleDrop}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onClick={handleClickDropZone}
-              >
-                <input
-                  type="file"
-                  multiple
-                  ref={fileInputRef}
-                  style={{ display: 'none' }}
-                  onChange={handleFileChange}
-                />
-                <div style={{ pointerEvents: 'none' }}>
-                  <strong>Drag and drop files here</strong> or click to select
-                </div>
-              </div>
-              {uploadedFiles.length > 0 && (
-                <div className={styles.uploadFileList}>
-                  <h4>Selected Files:</h4>
-                  <ul>
-                    {uploadedFiles.map((file, idx) => (
-                      <li key={file.name + idx}>{file.name}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
+            <UploadSheets />
           )}
           {activeTab === 'results' && (
-            <div className="tab-placeholder">[Placeholder] View results here.</div>
+            <ResultsTab />
           )}
           </div>
         </main>
       </div>
+    </div>
+  );
+}
+
+// ResultsTab component for Results tab
+function ResultsTab() {
+  const [allResults, setAllResults] = useState([]);
+  const [selected, setSelected] = useState(0);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('allOmrResults');
+      if (saved) setAllResults(JSON.parse(saved));
+    } catch {}
+  }, []);
+  if (!allResults.length) return <div>No results available. Please scan a sheet first.</div>;
+  const current = allResults[selected];
+  return (
+    <div>
+      <h2>Scanned Sheets Results</h2>
+      <div style={{ margin: '12px 0' }}>
+        <strong>Checked Sheets:</strong>
+        <ul style={{ listStyle: 'none', padding: 0 }}>
+          {allResults.map((r, idx) => (
+            <li key={r.id} style={{ marginBottom: 6 }}>
+              <button
+                style={{ fontWeight: idx === selected ? 700 : 400, marginRight: 8 }}
+                onClick={() => setSelected(idx)}
+              >
+                {r.fileName} ({r.checkedAt})
+              </button>
+              <span>Score: {r.score} / {r.total}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div style={{ fontSize: '1.2rem', margin: '12px 0' }}>
+        <strong>Score:</strong> {current.score} / {current.total}
+      </div>
+      <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+        <thead>
+          <tr>
+            <th style={{ border: '1px solid #bbb', padding: 4 }}>#</th>
+            <th style={{ border: '1px solid #bbb', padding: 4 }}>Detected</th>
+            <th style={{ border: '1px solid #bbb', padding: 4 }}>Correct</th>
+            <th style={{ border: '1px solid #bbb', padding: 4 }}>Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          {current.results.map(r => (
+            <tr key={r.number}>
+              <td style={{ border: '1px solid #bbb', padding: 4 }}>{r.number}</td>
+              <td style={{ border: '1px solid #bbb', padding: 4 }}>{r.detected}</td>
+              <td style={{ border: '1px solid #bbb', padding: 4 }}>{r.correct}</td>
+              <td style={{ border: '1px solid #bbb', padding: 4 }}>
+                {r.isCorrect === undefined ? '-' : r.isCorrect ? '✔️' : '❌'}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
