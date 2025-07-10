@@ -13,20 +13,43 @@ const NAV_TABS = [
   { key: 'results', label: 'Results' },
 ];
 
+const DEFAULT_SHEET = () => ({
+  id: Date.now().toString(),
+  name: 'Answer Sheet 1',
+  form: {
+    examType: '',
+    academicTerm: '',
+    subjectName: '',
+    testDirections: '',
+    numItems: '',
+    numChoices: '',
+  }
+});
+
+const getInitialSheets = () => {
+  const saved = localStorage.getItem('answerSheets');
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch {}
+  }
+  return []; 
+};
+
+const getInitialSelectedId = (sheets) => {
+  const saved = localStorage.getItem('selectedSheetId');
+  if (saved && sheets.some(s => s.id === saved)) return saved;
+  return sheets[0]?.id || null; 
+};
+
 function GenerateSheet() {
   const location = useLocation();
   const initialData = location.state || {};
   const [activeTab, setActiveTab] = useState('generate');
-  const [sheetName, setSheetName] = useState('Answer Sheet 1');
+  const [sheets, setSheets] = useState(getInitialSheets);
+  const [selectedSheetId, setSelectedSheetId] = useState(() => getInitialSelectedId(getInitialSheets()));
   const [editingName, setEditingName] = useState(false);
-  const [form, setForm] = useState({
-    examType: initialData.examType || '',
-    academicTerm: initialData.academicTerm || '',
-    subjectName: initialData.subjectName || '',
-    testDirections: initialData.testDirections || '',
-    numItems: initialData.numItems || '',
-    numChoices: initialData.numChoices || '',
-  });
   const [showExamDropdown, setShowExamDropdown] = useState(false);
   const [showChoicesDropdown, setShowChoicesDropdown] = useState(false);
   const examOptions = ['MIDTERM EXAMINATION', 'FINAL EXAMINATION', 'SHORT QUIZ', 'LONG QUIZ'];
@@ -39,38 +62,27 @@ function GenerateSheet() {
   ];
   const examDropdownRef = React.useRef(null);
   const choicesDropdownRef = React.useRef(null);
-  const [submitAttempted, setSubmitAttempted] = useState(false);
   const testDirectionsRef = useRef(null);
-  // Add state for drag-and-drop upload
-  const [uploadedFiles, setUploadedFiles] = useState([]);
-  const [isDragActive, setIsDragActive] = useState(false);
-  const fileInputRef = useRef(null);
 
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setIsDragActive(false);
-    const files = Array.from(e.dataTransfer.files);
-    setUploadedFiles((prev) => [...prev, ...files]);
-  };
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    setIsDragActive(true);
-  };
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    setIsDragActive(false);
-  };
-  const handleFileChange = (e) => {
-    const files = Array.from(e.target.files);
-    setUploadedFiles((prev) => [...prev, ...files]);
-  };
-  const handleClickDropZone = () => {
-    fileInputRef.current?.click();
-  };
+  useEffect(() => {
+    localStorage.setItem('answerSheets', JSON.stringify(sheets));
+    localStorage.setItem('selectedSheetId', selectedSheetId);
+  }, [sheets, selectedSheetId]);
 
-  // Helper to get minimum height for 2 rows
+  useEffect(() => {
+  if (sheets.length === 0 && location.state && Object.values(location.state).some(v => v)) {
+    const newSheet = {
+      id: location.state.id || Date.now().toString(),
+      name: location.state.name || 'Answer Sheet 1',
+      form: { ...location.state }
+    };
+    setSheets([newSheet]);
+    setSelectedSheetId(newSheet.id);
+    setActiveTab('generate');
+  }
+}, []);
+
   const getMinHeight = () => {
-    // Create a temporary textarea to measure 2 rows
     const temp = document.createElement('textarea');
     temp.rows = 2;
     temp.style.visibility = 'hidden';
@@ -85,21 +97,18 @@ function GenerateSheet() {
     return minHeight;
   };
 
-  // Restore height from localStorage if available on initial mount
   useEffect(() => {
     if (testDirectionsRef.current) {
       const savedHeight = localStorage.getItem('testDirectionsHeight');
       if (savedHeight) {
         testDirectionsRef.current.style.height = savedHeight + 'px';
       } else {
-        // Set to min height for 2 rows
         const minHeight = getMinHeight();
         testDirectionsRef.current.style.height = minHeight + 'px';
       }
     }
   }, []);
 
-  // Restore height every time the generate tab becomes active
   useEffect(() => {
     if (activeTab === 'generate' && testDirectionsRef.current) {
       const savedHeight = localStorage.getItem('testDirectionsHeight');
@@ -114,13 +123,12 @@ function GenerateSheet() {
 
   useEffect(() => {
     if (testDirectionsRef.current) {
-      // Always auto-resize to fit content, but never less than 2 rows
       testDirectionsRef.current.style.height = 'auto';
       const minHeight = getMinHeight();
       const newHeight = Math.max(testDirectionsRef.current.scrollHeight, minHeight);
       testDirectionsRef.current.style.height = newHeight + 'px';
     }
-  }, [form.testDirections]);
+  }, [sheets.find(s => s.id === selectedSheetId)?.form.testDirections]);
 
   React.useEffect(() => {
     function handleClickOutside(event) {
@@ -139,23 +147,34 @@ function GenerateSheet() {
 
   const handleFormChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-    if (name === 'testDirections') {
+    setSheets(sheets.map(s =>
+      s.id === selectedSheetId
+        ? { ...s, form: { ...s.form, [name]: value } }
+        : s
+    ));
+    if (name === 'testDirections' && testDirectionsRef.current) {
       handleTextareaResize(e);
     }
   };
 
   const handleNameEdit = () => setEditingName(true);
-  const handleNameChange = (e) => setSheetName(e.target.value);
   const handleNameBlur = () => setEditingName(false);
 
   const handleExamTypeSelect = (option) => {
-    setForm((prev) => ({ ...prev, examType: option }));
+    setSheets(sheets.map(s =>
+      s.id === selectedSheetId
+        ? { ...s, form: { ...s.form, examType: option } }
+        : s
+    ));
     setShowExamDropdown(false);
   };
 
   const handleNumChoicesSelect = (option) => {
-    setForm((prev) => ({ ...prev, numChoices: option.split(' ')[0] }));
+    setSheets(sheets.map(s =>
+      s.id === selectedSheetId
+        ? { ...s, form: { ...s.form, numChoices: option.split(' ')[0] } }
+        : s
+    ));
     setShowChoicesDropdown(false);
   };
   const handleChoicesDropdownToggle = () => {
@@ -168,14 +187,12 @@ function GenerateSheet() {
     const minHeight = getMinHeight();
     const newHeight = Math.max(textarea.scrollHeight, minHeight);
     textarea.style.height = newHeight + 'px';
-    // Persist height
     localStorage.setItem('testDirectionsHeight', newHeight);
   };
 
   const handleFormSubmit = (e) => {
     e.preventDefault();
-    setSubmitAttempted(true);
-    if (!form.examType || !form.subjectName || !form.testDirections || !form.numItems || !form.numChoices) {
+    if (!sheets.find(s => s.id === selectedSheetId)?.form.examType || !sheets.find(s => s.id === selectedSheetId)?.form.subjectName || !sheets.find(s => s.id === selectedSheetId)?.form.testDirections || !sheets.find(s => s.id === selectedSheetId)?.form.numItems || !sheets.find(s => s.id === selectedSheetId)?.form.numChoices) {
       return;
     }
     handleGeneratePDF();
@@ -198,24 +215,26 @@ function GenerateSheet() {
     const gridBottomGap = 10;
     const directionsGap = 14;
 
-    const numItems = parseInt(form.numItems) || 50;
-    const numChoices = parseInt(form.numChoices) || 4;
+    const numItems = parseInt(sheets.find(s => s.id === selectedSheetId)?.form.numItems) || 50;
+    const numChoices = parseInt(sheets.find(s => s.id === selectedSheetId)?.form.numChoices) || 4;
     const choiceLabels = ['A', 'B', 'C', 'D', 'E', 'F'].slice(0, numChoices);
-    const testDirectionsText = form.testDirections || 'Test I: Shade the circle that correspond to the letter of your chosen answer. Any kind of erasure or overwriting will invalidate your answer.';
+    const testDirectionsText = sheets.find(s => s.id === selectedSheetId)?.form.testDirections || 'Test I: Shade the circle that correspond to the letter of your chosen answer. Any kind of erasure or overwriting will invalidate your answer.';
 
-    // Helper to render header and directions, returns new y after rendering
     function renderHeaderAndDirections(doc, y) {
       doc.setFont('times', 'bold');
       doc.setFontSize(16);
-      doc.text(form.examType || 'EXAMINATION', pageWidth / 2, y, { align: 'center' });
+      doc.text(sheets.find(s => s.id === selectedSheetId)?.form.examType || 'EXAMINATION', pageWidth / 2, y, { align: 'center' });
       y += 22;
       doc.setFontSize(13);
-      doc.text(form.subjectName || 'Subject Name', pageWidth / 2, y, { align: 'center' });
+      doc.text(sheets.find(s => s.id === selectedSheetId)?.form.subjectName || 'Subject Name', pageWidth / 2, y, { align: 'center' });
       y += 18;
       doc.setFont('times', 'normal');
       doc.setFontSize(12);
-      doc.text(form.academicTerm || 'TERM, S.Y. 20XX - 20XX', pageWidth / 2, y, { align: 'center' });
-      y += 28;
+      if (sheets.find(s => s.id === selectedSheetId)?.form.academicTerm) {
+        doc.text(sheets.find(s => s.id === selectedSheetId)?.form.academicTerm, pageWidth / 2, y, { align: 'center' });
+        y += 28;
+      } else {
+      }
       const boxWidth = (pageWidth - 96) / 2;
       doc.setFontSize(11);
       doc.setLineWidth(1);
@@ -251,7 +270,7 @@ function GenerateSheet() {
       const col1End = Math.min(startNum + itemsPerColumn - 1, endNum);
       const col2Start = col1End + 1;
       const col2End = endNum;
-      const colWidth = (pageWidth - 120) / 2; // 120 = 2*60 margin
+      const colWidth = (pageWidth - 120) / 2; 
       const colX = [60, 60 + colWidth];
       let maxY = y;
       const numberWidth = 18;
@@ -264,7 +283,6 @@ function GenerateSheet() {
         [col2Start, col2End, colX[1]]
       ].forEach(([from, to, x]) => {
         if (from <= to) {
-          // Draw letter labels above the first row of this column only if there are answer numbers
           for (let cidx = 0; cidx < numChoices; cidx++) {
             doc.setFont('times', 'bold');
             doc.setFontSize(10);
@@ -275,7 +293,6 @@ function GenerateSheet() {
           const yRow = y + (i - from) * rowH;
           doc.setFont('times', 'normal');
           doc.setFontSize(11);
-          // Number left-aligned, with a small gap to the first bubble
           doc.text(`${i}.`, x + groupOffset, yRow + bubbleR + 13, { align: 'left' });
           for (let cidx = 0; cidx < numChoices; cidx++) {
             doc.setLineWidth(1);
@@ -312,62 +329,146 @@ function GenerateSheet() {
       itemNum = pageEnd + 1;
       page++;
     }
-    doc.save('answer-sheet.pdf');
+    const selectedSheet = sheets.find(s => s.id === selectedSheetId);
+    let filename = selectedSheet?.name && selectedSheet.name.trim() ? selectedSheet.name.trim().replace(/[^a-zA-Z0-9-_ ]/g, '').replace(/\s+/g, '_') + '.pdf' : 'answer-sheet.pdf';
+    doc.save(filename);
   };
 
-  const handleNewAnswerSheet = () => {
-    setSheetName('Answer Sheet 1');
-    setEditingName(false);
-    setForm({
-      examType: '',
-      academicTerm: '',
-      subjectName: '',
-      testDirections: '',
-      numItems: '',
-      numChoices: '',
+  const handleNewAnswerSheet = (e) => {
+    if (e) e.preventDefault();
+    const base = 'Answer Sheet ';
+    let maxNum = 0;
+    sheets.forEach(s => {
+      const match = s.name.match(/^Answer Sheet (\d+)$/);
+      if (match) {
+        maxNum = Math.max(maxNum, parseInt(match[1], 10));
+      }
     });
+    const newNum = maxNum + 1;
+    const newSheet = {
+      id: Date.now().toString(),
+      name: `${base}${newNum}`,
+      form: {
+        examType: '',
+        academicTerm: '',
+        subjectName: '',
+        testDirections: '',
+        numItems: '',
+        numChoices: '',
+      }
+    };
+    setSheets([...sheets, newSheet]);
+    setSelectedSheetId(newSheet.id);
+    setEditingName(false);
     setShowExamDropdown(false);
     setShowChoicesDropdown(false);
-    if (location.pathname !== '/generate') {
-      setActiveTab('generate');
-      window.history.replaceState({}, '', '/generate');
-    } else {
-      setActiveTab('generate');
-    }
+    setActiveTab('generate');
   };
+
+  if (sheets.length === 0) {
+    return (
+      <div className={styles['generate-sheet-outer']}>
+        <div className={styles['generate-sheet-container']}>
+          <aside className="sidebar">
+            <h2>Dashboard</h2>
+            <button className="new-answer-sheet-btn" onClick={handleNewAnswerSheet}>+ New Answer Sheet</button>
+            <div className="sidebar-answer-list"></div>
+          </aside>
+          <main className={styles['generate-sheet-content']}>
+            <div className={styles['generate-empty-state']}>
+              <div className={styles['generate-empty-state__text']}>
+                No sheets. Click <b>+ New Answer Sheet</b> to create one.
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles['generate-sheet-outer']}>
       <div className={styles['generate-sheet-container']}>
         <aside className="sidebar">
           <h2>Dashboard</h2>
-          <button className="new-answer-sheet-btn">+ New Answer Sheet</button>
+          <button className="new-answer-sheet-btn" onClick={handleNewAnswerSheet}>+ New Answer Sheet</button>
           <div className="sidebar-answer-list">
-            <div className="sidebar-answer-item" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              {editingName ? (
-                <input
-                  className="sidebar-answer-edit-input"
-                  value={sheetName}
-                  onChange={handleNameChange}
-                  onBlur={handleNameBlur}
-                  autoFocus
-                />
-              ) : (
-                <>
-                  <span className="sidebar-answer-title">{sheetName}</span>
-                  <button className="sidebar-edit-btn" onClick={handleNameEdit} title="Rename">
-                    <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                      <path d="M4 13.5V16h2.5l7.06-7.06-2.5-2.5L4 13.5z" stroke="#6b7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M14.06 6.44a1.5 1.5 0 0 0 0-2.12l-1.38-1.38a1.5 1.5 0 0 0-2.12 0l-1.06 1.06 3.5 3.5 1.06-1.06z" stroke="#6b7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </button>
-                </>
-              )}
-            </div>
+            {sheets.map(sheet => (
+                <div
+                  key={sheet.id}
+                  className="sidebar-answer-item"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    background: sheet.id === selectedSheetId ? '#e0e0e0' : 'transparent',
+                    cursor: 'pointer',
+                    fontWeight: sheet.id === selectedSheetId ? 'bold' : 'normal',
+                    paddingRight: 8,
+                  }}
+                  onClick={() => setSelectedSheetId(sheet.id)}
+                >
+                  {editingName && sheet.id === selectedSheetId ? (
+                    <input
+                      className="sidebar-answer-edit-input"
+                      value={sheet.name}
+                      onChange={e => {
+                        setSheets(sheets.map(s => s.id === sheet.id ? { ...s, name: e.target.value } : s));
+                      }}
+                      onBlur={() => setEditingName(false)}
+                      autoFocus
+                      onClick={e => e.stopPropagation()}
+                    />
+                  ) : (
+                    <>
+                      <span className="sidebar-answer-title">{sheet.name}</span>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <button
+                          className="sidebar-edit-btn"
+                          onClick={e => { e.stopPropagation(); setEditingName(true); }}
+                          title="Rename"
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                            <path d="M4 13.5V16h2.5l7.06-7.06-2.5-2.5L4 13.5z" stroke="#6b7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M14.06 6.44a1.5 1.5 0 0 0 0-2.12l-1.38-1.38a1.5 1.5 0 0 0-2.12 0l-1.06 1.06 3.5 3.5 1.06-1.06z" stroke="#6b7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </button>
+                        <button
+                          className="sidebar-delete-btn"
+                          onClick={e => {
+                            e.stopPropagation();
+                            if (sheets.length === 1) {
+                              setSheets([]);
+                              setSelectedSheetId(null);
+                            } else {
+                              const idx = sheets.findIndex(s => s.id === sheet.id);
+                              const newSheets = sheets.filter(s => s.id !== sheet.id);
+                              setSheets(newSheets);
+                              if (sheet.id === selectedSheetId) {
+                                const nextIdx = idx < newSheets.length ? idx : newSheets.length - 1;
+                                setSelectedSheetId(newSheets[nextIdx].id);
+                              }
+                            }
+                          }}
+                          title="Delete"
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                            <path d="M6 8l1 8h6l1-8" stroke="#c00" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M4 6h12M9 6V4a1 1 0 0 1 1-1h0a1 1 0 0 1 1 1v2" stroke="#c00" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))
+            }
           </div>
         </aside>
         <main className={styles['generate-sheet-content']}>
-          <h2 className={styles['generate-sheet-title']}>{sheetName}</h2>
+          <h2 className={styles['generate-sheet-title']}>{sheets.find(s => s.id === selectedSheetId)?.name}</h2>
           <nav className={styles['generate-sheet-navbar']}>
             {NAV_TABS.map((tab) => (
               <button
@@ -390,19 +491,17 @@ function GenerateSheet() {
                   <div className={styles['generate-sheet-col']}>
                     <label htmlFor="examType">Exam Type <span className={styles['required']}>*</span></label>
                     <div className={styles['custom-select-container']} ref={examDropdownRef}>
-                  <input
+                      <input
                         className={`${styles['input']} ${styles['custom-select-input']}`}
-                    id="examType"
-                    name="examType"
-                    type="text"
-                    value={form.examType}
-                    onChange={handleFormChange}
+                        id="examType"
+                        name="examType"
+                        type="text"
+                        value={sheets.find(s => s.id === selectedSheetId)?.form.examType || ''}
+                        onChange={handleFormChange}
                         autoComplete="off"
                         onClick={() => setShowExamDropdown(true)}
+                        required
                       />
-                      {submitAttempted && !form.examType && (
-                        <div style={{ color: '#dc3545', fontSize: '0.97rem', marginTop: 2 }}>Exam Type is required.</div>
-                      )}
                       <button type="button" className={styles['custom-select-arrow']} onClick={() => setShowExamDropdown((v) => !v)}>
                         <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
                           <path stroke="#6b7280" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M6 8l4 4 4-4"/>
@@ -426,7 +525,7 @@ function GenerateSheet() {
                     id="academicTerm"
                     name="academicTerm"
                     type="text"
-                    value={form.academicTerm}
+                    value={sheets.find(s => s.id === selectedSheetId)?.form.academicTerm || ''}
                     onChange={handleFormChange}
                       autoComplete="off"
                   />
@@ -440,14 +539,12 @@ function GenerateSheet() {
                   id="subjectName"
                   name="subjectName"
                   type="text"
-                  value={form.subjectName}
+                  value={sheets.find(s => s.id === selectedSheetId)?.form.subjectName || ''}
                   onChange={handleFormChange}
                       autoComplete="off"
-                    />
-                    {submitAttempted && !form.subjectName && (
-                      <div style={{ color: '#dc3545', fontSize: '0.97rem', marginTop: 2 }}>Subject Name is required.</div>
-                    )}
-                  </div>
+                    required
+                  />
+                </div>
                 </div>
                 <div className={styles['form-group']}>
                   <label>Display</label>
@@ -477,15 +574,13 @@ function GenerateSheet() {
                   rows={2}
                     onInput={handleTextareaResize}
                     onChange={handleFormChange}
-                  value={form.testDirections}
+                  value={sheets.find(s => s.id === selectedSheetId)?.form.testDirections || ''}
                     autoComplete="off"
                     style={{overflow: 'hidden', resize: 'none'}}
                     ref={testDirectionsRef}
+                    required
                   />
-                  {submitAttempted && !form.testDirections && (
-                    <div style={{ color: '#dc3545', fontSize: '0.97rem', marginTop: 2 }}>Test Directions are required.</div>
-                  )}
-              </div>
+                </div>
                 <div className={styles['generate-sheet-row']}>
                   <div className={styles['generate-sheet-col']}>
                     <label htmlFor="numItems">Number of Items <span className={styles['required']}>*</span></label>
@@ -496,14 +591,12 @@ function GenerateSheet() {
                     type="number"
                     min="1"
                     max="300"
-                    value={form.numItems}
+                    value={sheets.find(s => s.id === selectedSheetId)?.form.numItems || ''}
                     onChange={handleFormChange}
                       autoComplete="off"
+                    required
                   />
-                    {submitAttempted && !form.numItems && (
-                      <div style={{ color: '#dc3545', fontSize: '0.97rem', marginTop: 2 }}>Number of Items is required.</div>
-                    )}
-                  </div>
+                </div>
                   <div className={styles['generate-sheet-col']}>
                     <label htmlFor="numChoices">Number of Choices <span className={styles['required']}>*</span></label>
                     <div className={styles['custom-select-container']} ref={choicesDropdownRef}>
@@ -513,19 +606,17 @@ function GenerateSheet() {
                         name="numChoices"
                         type="text"
                         value={(() => {
-                          if (!form.numChoices) return '';
-                          const labels = ['A','B','C','D','E','F'].slice(0, Number(form.numChoices));
-                          return labels.length ? `${form.numChoices} (${labels.join(', ')})` : form.numChoices;
+                          if (!sheets.find(s => s.id === selectedSheetId)?.form.numChoices) return '';
+                          const labels = ['A','B','C','D','E','F'].slice(0, Number(sheets.find(s => s.id === selectedSheetId)?.form.numChoices));
+                          return labels.length ? `${sheets.find(s => s.id === selectedSheetId)?.form.numChoices} (${labels.join(', ')})` : sheets.find(s => s.id === selectedSheetId)?.form.numChoices;
                         })()}
                         onChange={() => {}}
                         readOnly
                         onClick={handleChoicesDropdownToggle}
                         style={{ cursor: 'pointer' }}
                         autoComplete="off"
+                        required
                       />
-                      {submitAttempted && !form.numChoices && (
-                        <div style={{ color: '#dc3545', fontSize: '0.97rem', marginTop: 2 }}>Number of Choices is required.</div>
-                      )}
                       <button type="button" className={styles['custom-select-arrow']} onClick={handleChoicesDropdownToggle}>
                         <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
                           <path stroke="#6b7280" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M6 8l4 4 4-4"/>
@@ -544,56 +635,17 @@ function GenerateSheet() {
                   </div>
                 </div>
                 <div className={styles['generate-sheet-btn-row']}>
-                  <button className={styles['generate-sheet-create-btn']} type="submit"
-                    disabled={
-                      !form.examType ||
-                      !form.subjectName ||
-                      !form.testDirections ||
-                      !form.numItems ||
-                      !form.numChoices
-                    }
-                  >
+                  <button className={styles['generate-sheet-create-btn']} type="submit">
                     Generate Answer Sheet
-                </button>
-              </div>
-            </form>
+                  </button>
+                </div>
+              </form>
           )}
           {activeTab === 'answer' && (
-            <AnswerKey examData={form} />
+            <AnswerKey examData={sheets.find(s => s.id === selectedSheetId)?.form} />
           )}
           {activeTab === 'upload' && (
-            <div>
-              <div
-                className={
-                  styles.uploadDropZone + (isDragActive ? ' ' + styles.uploadDropZoneActive : '')
-                }
-                onDrop={handleDrop}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onClick={handleClickDropZone}
-              >
-                <input
-                  type="file"
-                  multiple
-                  ref={fileInputRef}
-                  style={{ display: 'none' }}
-                  onChange={handleFileChange}
-                />
-                <div style={{ pointerEvents: 'none' }}>
-                  <strong>Drag and drop files here</strong> or click to select
-                </div>
-              </div>
-              {uploadedFiles.length > 0 && (
-                <div className={styles.uploadFileList}>
-                  <h4>Selected Files:</h4>
-                  <ul>
-                    {uploadedFiles.map((file, idx) => (
-                      <li key={file.name + idx}>{file.name}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
+            <div className="tab-placeholder">[Placeholder] Upload page removed.</div>
           )}
           {activeTab === 'results' && (
             <div className="tab-placeholder">[Placeholder] View results here.</div>

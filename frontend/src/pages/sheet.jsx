@@ -35,6 +35,8 @@ function AnswerSheet() {
     e.preventDefault();
     navigate('/generate', {
       state: {
+        id: Date.now().toString(),
+        name: 'Answer Sheet 1',
         examType,
         academicTerm,
         subjectName,
@@ -107,7 +109,7 @@ function AnswerSheet() {
             <form className={styles['answer-sheet-form']} onSubmit={handleSubmit} autoComplete="off">
               <div className={styles['answer-sheet-row']}>
                 <div className={styles['answer-sheet-col']}>
-                  <label htmlFor="examType">Exam Type <span className={styles['required']}>*</span></label>
+                  <label htmlFor="examType">Exam Type<span className={styles['required']}>*</span></label>
                   <div className={styles['custom-select-container']} ref={examDropdownRef}>
                   <input 
                       className={`${styles['input']} ${styles['custom-select-input']}`}
@@ -139,7 +141,7 @@ function AnswerSheet() {
                 </div>
               </div>
               <div className={styles['form-group']}>
-                <label htmlFor="subjectName">Subject Name <span className={styles['required']}>*</span></label>
+                <label htmlFor="subjectName">Subject Name<span className={styles['required']}>*</span></label>
                 <input className={styles['input']} id="subjectName" type="text" required value={subjectName} onChange={e => setSubjectName(e.target.value)} autoComplete="off" />
               </div>
               <div className={styles['form-group']}>
@@ -176,7 +178,7 @@ function AnswerSheet() {
             </div>  
               <div className={styles['answer-sheet-row']}>
                 <div className={styles['answer-sheet-col']}>
-                  <label htmlFor="numItems">Number of Items <span className={styles['required']}>*</span></label>
+                  <label htmlFor="numItems">Number of Items<span className={styles['required']}>*</span></label>
                 <input 
                     className={styles['input']} 
                   id="numItems" 
@@ -191,7 +193,7 @@ function AnswerSheet() {
                 />
                 </div>
                 <div className={styles['answer-sheet-col']}>
-                  <label htmlFor="numChoices">Number of Choices <span className={styles['required']}>*</span></label>
+                  <label htmlFor="numChoices">Number of Choices<span className={styles['required']}>*</span></label>
                   <div className={styles['custom-select-container']} ref={choicesDropdownRef}>
                     <input
                       className={`${styles['input']} ${styles['custom-select-input']}`}
