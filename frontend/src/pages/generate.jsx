@@ -23,7 +23,7 @@ function GenerateSheet() {
     examType: initialData.examType || '',
     academicTerm: initialData.academicTerm || '',
     subjectName: initialData.subjectName || '',
-    testDirections: localStorage.getItem('testDirections') || initialData.testDirections || '',
+    testDirections: initialData.testDirections || '',
     numItems: initialData.numItems || '',
     numChoices: initialData.numChoices || '',
   });
@@ -41,6 +41,32 @@ function GenerateSheet() {
   const choicesDropdownRef = React.useRef(null);
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const testDirectionsRef = useRef(null);
+  // Add state for drag-and-drop upload
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [isDragActive, setIsDragActive] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragActive(false);
+    const files = Array.from(e.dataTransfer.files);
+    setUploadedFiles((prev) => [...prev, ...files]);
+  };
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragActive(true);
+  };
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragActive(false);
+  };
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files);
+    setUploadedFiles((prev) => [...prev, ...files]);
+  };
+  const handleClickDropZone = () => {
+    fileInputRef.current?.click();
+  };
 
   // Helper to get minimum height for 2 rows
   const getMinHeight = () => {
@@ -93,11 +119,7 @@ function GenerateSheet() {
       const minHeight = getMinHeight();
       const newHeight = Math.max(testDirectionsRef.current.scrollHeight, minHeight);
       testDirectionsRef.current.style.height = newHeight + 'px';
-      // Persist height
-      localStorage.setItem('testDirectionsHeight', newHeight);
     }
-    // Persist testDirections in localStorage
-    localStorage.setItem('testDirections', form.testDirections);
   }, [form.testDirections]);
 
   React.useEffect(() => {
@@ -291,6 +313,27 @@ function GenerateSheet() {
       page++;
     }
     doc.save('answer-sheet.pdf');
+  };
+
+  const handleNewAnswerSheet = () => {
+    setSheetName('Answer Sheet 1');
+    setEditingName(false);
+    setForm({
+      examType: '',
+      academicTerm: '',
+      subjectName: '',
+      testDirections: '',
+      numItems: '',
+      numChoices: '',
+    });
+    setShowExamDropdown(false);
+    setShowChoicesDropdown(false);
+    if (location.pathname !== '/generate') {
+      setActiveTab('generate');
+      window.history.replaceState({}, '', '/generate');
+    } else {
+      setActiveTab('generate');
+    }
   };
 
   return (
@@ -519,7 +562,38 @@ function GenerateSheet() {
             <AnswerKey examData={form} />
           )}
           {activeTab === 'upload' && (
-            <div className="tab-placeholder">[Placeholder] Upload scanned sheets here.</div>
+            <div>
+              <div
+                className={
+                  styles.uploadDropZone + (isDragActive ? ' ' + styles.uploadDropZoneActive : '')
+                }
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onClick={handleClickDropZone}
+              >
+                <input
+                  type="file"
+                  multiple
+                  ref={fileInputRef}
+                  style={{ display: 'none' }}
+                  onChange={handleFileChange}
+                />
+                <div style={{ pointerEvents: 'none' }}>
+                  <strong>Drag and drop files here</strong> or click to select
+                </div>
+              </div>
+              {uploadedFiles.length > 0 && (
+                <div className={styles.uploadFileList}>
+                  <h4>Selected Files:</h4>
+                  <ul>
+                    {uploadedFiles.map((file, idx) => (
+                      <li key={file.name + idx}>{file.name}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
           )}
           {activeTab === 'results' && (
             <div className="tab-placeholder">[Placeholder] View results here.</div>
