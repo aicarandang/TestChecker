@@ -14,7 +14,7 @@ function Dashboard() {
         </aside>
         <div className={styles['dashboard-main-container']}>
           <div className={styles['dashboard-content']}>
-            <h1 className={styles['dashboard-title']}>TEST CHECKER</h1>
+            <h1 className={styles['dashboard-title']}>SNAPCHECK</h1>
             <p className={styles['dashboard-subtitle']}>Create sheets. Upload scans. Get results.</p>
             <button className={styles['dashboard-create-btn']} onClick={() => navigate('/answersheet')}>
               Create Answer Sheet

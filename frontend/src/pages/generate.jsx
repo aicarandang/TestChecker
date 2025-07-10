@@ -29,7 +29,7 @@ function GenerateSheet() {
   });
   const [showExamDropdown, setShowExamDropdown] = useState(false);
   const [showChoicesDropdown, setShowChoicesDropdown] = useState(false);
-  const examOptions = ['MIDTERM EXAMINATION', 'FINAL EXAMINATION', 'QUIZ', 'LAB EXERCISE', 'HOMEWORK'];
+  const examOptions = ['MIDTERM EXAMINATION', 'FINAL EXAMINATION', 'SHORT QUIZ', 'LONG QUIZ'];
   const numChoicesOptions = [
     '2 (A, B)',
     '3 (A, B, C)',
@@ -174,7 +174,7 @@ function GenerateSheet() {
     const numW = 20;
     const gridTopGap = 10;
     const gridBottomGap = 10;
-    const directionsGap = 8;
+    const directionsGap = 14;
 
     const numItems = parseInt(form.numItems) || 50;
     const numChoices = parseInt(form.numChoices) || 4;
@@ -229,22 +229,37 @@ function GenerateSheet() {
       const col1End = Math.min(startNum + itemsPerColumn - 1, endNum);
       const col2Start = col1End + 1;
       const col2End = endNum;
-      const colX = [60, pageWidth / 2 + 10];
+      const colWidth = (pageWidth - 120) / 2; // 120 = 2*60 margin
+      const colX = [60, 60 + colWidth];
       let maxY = y;
+      const numberWidth = 18;
+      const gap = 8;
+      const groupWidth = numberWidth + gap + numChoices * colW;
+      const groupOffset = (colWidth - groupWidth) / 2;
+      
       [
         [col1Start, col1End, colX[0]],
         [col2Start, col2End, colX[1]]
       ].forEach(([from, to, x]) => {
+        if (from <= to) {
+          // Draw letter labels above the first row of this column only if there are answer numbers
+          for (let cidx = 0; cidx < numChoices; cidx++) {
+            doc.setFont('times', 'bold');
+            doc.setFontSize(10);
+            doc.text(choiceLabels[cidx], x + groupOffset + numberWidth + gap + cidx * colW, y - 5, { align: 'center' });
+          }
+        }
         for (let i = from; i <= to; i++) {
           const yRow = y + (i - from) * rowH;
           doc.setFont('times', 'normal');
           doc.setFontSize(11);
-          doc.text(`${i}.`, x, yRow + bubbleR + 5, { align: 'left' });
+          // Number left-aligned, with a small gap to the first bubble
+          doc.text(`${i}.`, x + groupOffset, yRow + bubbleR + 13, { align: 'left' });
           for (let cidx = 0; cidx < numChoices; cidx++) {
             doc.setLineWidth(1);
-            doc.circle(x + 30 + cidx * colW, yRow + bubbleR + 5, bubbleR, 'S');
+            doc.circle(x + groupOffset + numberWidth + gap + cidx * colW, yRow + bubbleR + 9, bubbleR, 'S');
           }
-          maxY = Math.max(maxY, yRow + bubbleR * 2 + 5);
+          maxY = Math.max(maxY, yRow + bubbleR * 2 + 9);
         }
       });
       return maxY + gridBottomGap;
@@ -454,7 +469,11 @@ function GenerateSheet() {
                         id="numChoices"
                         name="numChoices"
                         type="text"
-                        value={form.numChoices ? `${form.numChoices} (${['A','B','C','D','E','F'].slice(0, Number(form.numChoices)).join(', ')})` : ''}
+                        value={(() => {
+                          if (!form.numChoices) return '';
+                          const labels = ['A','B','C','D','E','F'].slice(0, Number(form.numChoices));
+                          return labels.length ? `${form.numChoices} (${labels.join(', ')})` : form.numChoices;
+                        })()}
                         onChange={() => {}}
                         readOnly
                         onClick={handleChoicesDropdownToggle}

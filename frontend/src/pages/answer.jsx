@@ -20,93 +20,86 @@ function AnswerKey({ examData: propExamData }) {
       setNumItems(parseInt(location.state.numItems) || 50);
       setNumChoices(parseInt(location.state.numChoices) || 4);
     }
+    // Load saved answer key if exists
+    const keyParts = [
+      (propExamData?.examType || location.state?.examType || 'exam'),
+      (propExamData?.subjectName || location.state?.subjectName || 'subject'),
+      (propExamData?.numItems || location.state?.numItems || 50)
+    ];
+    const storageKey = `answerKey_${keyParts.join('_')}`;
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      setAnswerKey(JSON.parse(saved));
+    }
   }, [propExamData, location.state]);
 
   const choiceLabels = ['A', 'B', 'C', 'D', 'E', 'F'].slice(0, numChoices);
 
-  let groupSize = 20;
-  if (numItems <= 30) groupSize = 10;
-  else if (numItems <= 60) groupSize = 20;
-  else if (numItems <= 100) groupSize = 25;
-  else groupSize = 30;
-  const numGroups = Math.ceil(numItems / groupSize);
+  // Split questions into two columns
+  const splitPoint = Math.ceil(numItems / 2);
+  const leftQuestions = Array.from({ length: splitPoint }, (_, i) => i + 1);
+  const rightQuestions = Array.from({ length: numItems - splitPoint }, (_, i) => splitPoint + i + 1);
 
-  const gridRows = [];
-  for (let g = 0; g < numGroups; g++) {
-    gridRows.push(<span className={styles.scantronHeaderNumber} key={`hnum${g}`}></span>);
-    choiceLabels.forEach((choice, cidx) => {
-      gridRows.push(
-        <span className={styles.scantronHeaderChoice} key={`h${g}-${choice}`}>{choice}</span>
-      );
-    });
-    if (g < numGroups - 1) {
-      gridRows.push(<span className={styles.scantronSpacer} key={`hspacer${g}`}></span>);
-    }
-  }
-  for (let i = 0; i < groupSize; i++) {
-    for (let g = 0; g < numGroups; g++) {
-      const qNum = g * groupSize + i + 1;
-      if (qNum > numItems) {
-        gridRows.push(<span className={styles.scantronQnumEmpty} key={`empty${g}-${i}`}></span>);
-        choiceLabels.forEach((choice, cidx) => {
-          gridRows.push(<span className={styles.scantronBubbleEmpty} key={`empty${g}-${i}-${choice}`}></span>);
-        });
-      } else {
-        gridRows.push(
-          <span className={styles.scantronQnum} key={`qnum${qNum}`}>{qNum}.</span>
-        );
-          gridRows.push(
-          <span key={`radiogroup-${qNum}`} role="radiogroup" aria-label={`Choices for question ${qNum}`} style={{ display: 'contents' }}>
+  function renderColumn(questions) {
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: gridTemplateColumns, rowGap: '8px', marginRight: 32 }}>
+        <>
+          <span className={styles.scantronHeaderNumber}></span>
+          {choiceLabels.map((choice, cidx) => (
+            <span className={styles.scantronHeaderChoice} key={`h-${choice}`}>{choice}</span>
+          ))}
+        </>
+        {questions.map(i => [
+          <span className={styles.scantronQnum} key={`qnum${i}`}>{i}.</span>,
+          <span key={`radiogroup-${i}`} role="radiogroup" aria-label={`Choices for question ${i}`} style={{ display: 'contents' }}>
             {choiceLabels.map((choice, cidx) => (
-            <button
-              key={`b${qNum}-${choice}`}
+              <button
+                key={`b${i}-${choice}`}
                 className={
-                  styles.scantronChoiceBtn + (answerKey[qNum] === choice ? ' ' + styles.selected : '')
+                  styles.scantronChoiceBtn + (answerKey[i] === choice ? ' ' + styles.selected : '')
                 }
-              onClick={() => handleAnswerSelect(qNum, choice)}
-              type="button"
+                onClick={() => handleAnswerSelect(i, choice)}
+                type="button"
                 role="radio"
-                aria-checked={answerKey[qNum] === choice}
-              aria-label={`Set answer for question ${qNum} to ${choice}`}
-                tabIndex={answerKey[qNum] === choice ? 0 : -1}
-            >
+                aria-checked={answerKey[i] === choice}
+                aria-label={`Set answer for question ${i} to ${choice}`}
+                tabIndex={answerKey[i] === choice ? 0 : -1}
+              >
                 <span className={styles.scantronChoiceCircle}></span>
-            </button>
+              </button>
             ))}
           </span>
-          );
-      }
-      if (g < numGroups - 1) {
-        gridRows.push(<span className={styles.scantronSpacer} key={`spacer${g}-${i}`}></span>);
-      }
-    }
+        ])}
+      </div>
+    );
   }
 
-  const groupColumns = [`minmax(28px,32px)`, ...Array(numChoices).fill('24px')].join(' ');
-  const gridTemplateColumns = Array(numGroups)
-    .fill(groupColumns)
-    .join(' 32px ');
+  // Adjust grid columns for single vertical list
+  const gridTemplateColumns = `minmax(38px,42px) repeat(${numChoices}, 32px)`;
 
   const handleAnswerSelect = (questionNumber, choice) => {
     setAnswerKey(prev => ({ ...prev, [questionNumber]: choice }));
   };
 
   const saveAnswerKey = () => {
+    // Create a unique key for this answer sheet
+    const keyParts = [
+      examData.examType || 'exam',
+      examData.subjectName || 'subject',
+      numItems
+    ];
+    const storageKey = `answerKey_${keyParts.join('_')}`;
+    localStorage.setItem(storageKey, JSON.stringify(answerKey));
     alert('Answer key saved!');
   };
 
   return (
     <div className={styles.scantronSheetOuter}>
-      <div
-        className={styles.scantronSheetGrid}
-        style={{
-          display: 'grid',
-          gridTemplateColumns,
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-      >
-        {gridRows}
+      <div className={styles.scantronScrollContainer}>
+        <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-start', gap: 0 }}>
+          {renderColumn(leftQuestions)}
+          {renderColumn(rightQuestions)}
+        </div>
       </div>
       <div className={styles.scantronSheetFooter}>
         <button className={styles.bubbleSaveBtn} onClick={saveAnswerKey}>Save Answer Key</button>
