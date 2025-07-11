@@ -56,6 +56,18 @@
   font-weight: 500;
   color: #222;
   box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+  transition: background 0.2s, border 0.2s;
+  cursor: pointer;
+}
+
+.sidebar-answer-item:hover {
+  background: #f3e3a7;
+  border-color: #a89c6a;
+}
+
+.sidebar-answer-item.active {
+  background: #e0d7b8;
+  border-color: #a89c6a;
 }
 
 .sidebar-answer-title {
@@ -65,15 +77,26 @@
   font-size: 1.08rem;
   font-weight: 500;
   color: #222;
+  flex: 1;
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.sidebar-edit-btn {
+.sidebar-answer-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.sidebar-edit-btn, .sidebar-delete-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 26px;
   height: 26px;
-  margin-left: 4px;
   border: none;
   background: transparent;
   border-radius: 50%;
@@ -82,13 +105,14 @@
   padding: 0;
 }
 
-.sidebar-edit-btn:hover, .sidebar-edit-btn:focus {
+.sidebar-edit-btn:hover, .sidebar-edit-btn:focus,
+.sidebar-delete-btn:hover, .sidebar-delete-btn:focus {
   background: #ece7d8;
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
   outline: none;
 }
 
-.sidebar-edit-btn svg {
+.sidebar-edit-btn svg, .sidebar-delete-btn svg {
   display: block;
   margin: 0 auto;
 }

@@ -1,111 +1,124 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
-import '../styles/sidebar.css';
 import styles from '../styles/answer.module.css';
 
-function AnswerKey({ examData: propExamData }) {
-  const location = useLocation();
-  const [answerKey, setAnswerKey] = useState({});
-  const [numItems, setNumItems] = useState(50);
-  const [numChoices, setNumChoices] = useState(4);
-  const [examData, setExamData] = useState({});
+const CHOICE_LABELS = ['A', 'B', 'C', 'D', 'E', 'F'];
 
-  useEffect(() => {
-    if (propExamData) {
-      setExamData(propExamData);
-      setNumItems(parseInt(propExamData.numItems) || 50);
-      setNumChoices(parseInt(propExamData.numChoices) || 4);
-    } else if (location.state) {
-      setExamData(location.state);
-      setNumItems(parseInt(location.state.numItems) || 50);
-      setNumChoices(parseInt(location.state.numChoices) || 4);
-    }
-    // Load saved answer key if exists
-    const keyParts = [
-      (propExamData?.examType || location.state?.examType || 'exam'),
-      (propExamData?.subjectName || location.state?.subjectName || 'subject'),
-      (propExamData?.numItems || location.state?.numItems || 50)
-    ];
-    const storageKey = `answerKey_${keyParts.join('_')}`;
+function AnswerKey({ examData }) {
+  const numItems = parseInt(examData?.numItems);
+  const numChoices = parseInt(examData?.numChoices);
+  const choices = CHOICE_LABELS.slice(0, numChoices);
+  const storageKey = examData?.id ? `answerKey_${examData.id}` : 'answerKey';
+
+  if (!numItems || !numChoices || numItems < 1 || numChoices < 1) return null;
+
+  let numCols = 3;
+  if (numItems <= 10) numCols = 1;
+  else if (numItems <= 20) numCols = 2;
+
+  const baseRows = Math.floor(numItems / numCols);
+  const extra = numItems % numCols;
+  let start = 0;
+  const columns = Array.from({ length: numCols }, (_, colIdx) => {
+    const count = baseRows + (colIdx < extra ? 1 : 0);
+    const col = Array.from({ length: count }, (_, i) => start + i);
+    start += count;
+    return col;
+  });
+
+  const [answers, setAnswers] = useState(() => {
     const saved = localStorage.getItem(storageKey);
     if (saved) {
-      setAnswerKey(JSON.parse(saved));
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length === numItems) return parsed;
+      } catch {}
     }
-  }, [propExamData, location.state]);
+    return Array(numItems).fill(null);
+  });
+  const [saved, setSaved] = useState(false);
 
-  const choiceLabels = ['A', 'B', 'C', 'D', 'E', 'F'].slice(0, numChoices);
+  useEffect(() => {
+    setAnswers(prev => {
+      if (prev.length === numItems) return prev;
+      if (prev.length < numItems) return [...prev, ...Array(numItems - prev.length).fill(null)];
+      return prev.slice(0, numItems);
+    });
+  }, [numItems]);
 
-  // Split questions into two columns
-  const splitPoint = Math.ceil(numItems / 2);
-  const leftQuestions = Array.from({ length: splitPoint }, (_, i) => i + 1);
-  const rightQuestions = Array.from({ length: numItems - splitPoint }, (_, i) => splitPoint + i + 1);
+  const allAnswered = answers.length === numItems && answers.every(a => a !== null);
 
-  function renderColumn(questions) {
-    return (
-      <div style={{ display: 'grid', gridTemplateColumns: gridTemplateColumns, rowGap: '8px', marginRight: 32 }}>
-        <>
-          <span className={styles.scantronHeaderNumber}></span>
-          {choiceLabels.map((choice, cidx) => (
-            <span className={styles.scantronHeaderChoice} key={`h-${choice}`}>{choice}</span>
-          ))}
-        </>
-        {questions.map(i => [
-          <span className={styles.scantronQnum} key={`qnum${i}`}>{i}.</span>,
-          <span key={`radiogroup-${i}`} role="radiogroup" aria-label={`Choices for question ${i}`} style={{ display: 'contents' }}>
-            {choiceLabels.map((choice, cidx) => (
-              <button
-                key={`b${i}-${choice}`}
-                className={
-                  styles.scantronChoiceBtn + (answerKey[i] === choice ? ' ' + styles.selected : '')
-                }
-                onClick={() => handleAnswerSelect(i, choice)}
-                type="button"
-                role="radio"
-                aria-checked={answerKey[i] === choice}
-                aria-label={`Set answer for question ${i} to ${choice}`}
-                tabIndex={answerKey[i] === choice ? 0 : -1}
-              >
-                <span className={styles.scantronChoiceCircle}></span>
-              </button>
-            ))}
-          </span>
-        ])}
-      </div>
-    );
-  }
-
-  // Adjust grid columns for single vertical list
-  const gridTemplateColumns = `minmax(38px,42px) repeat(${numChoices}, 32px)`;
-
-  const handleAnswerSelect = (questionNumber, choice) => {
-    setAnswerKey(prev => ({ ...prev, [questionNumber]: choice }));
+  const handleSave = () => {
+    if (!allAnswered) return;
+    localStorage.setItem(storageKey, JSON.stringify(answers));
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1200);
   };
 
-  const saveAnswerKey = () => {
-    // Create a unique key for this answer sheet
-    const keyParts = [
-      examData.examType || 'exam',
-      examData.subjectName || 'subject',
-      numItems
-    ];
-    const storageKey = `answerKey_${keyParts.join('_')}`;
-    localStorage.setItem(storageKey, JSON.stringify(answerKey));
-    alert('Answer key saved!');
+  const handleSelect = (idx, choice) => {
+    setAnswers(prev => {
+      const next = [...prev];
+      next[idx] = choice;
+      return next;
+    });
   };
 
   return (
-    <div className={styles.scantronSheetOuter}>
-      <div className={styles.scantronScrollContainer}>
-        <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-start', gap: 0 }}>
-          {renderColumn(leftQuestions)}
-          {renderColumn(rightQuestions)}
-        </div>
+    <div className={styles['answerkey-outer']}>
+      <div
+        className={styles['answerkey-grid']}
+        style={{
+          gridTemplateColumns: `repeat(${numCols}, auto)`,
+          ['--col-count']: numCols
+        }}
+      >
+        {columns.map((col, colIdx) => (
+          <div className={styles['answerkey-col']} key={colIdx}>
+            <div className={styles['answerkey-row']} style={{ fontWeight: 700, fontSize: '1.13rem', marginBottom: 0 }}>
+              <span className={styles['answerkey-cell']} />
+              {choices.map(choice => (
+                <span className={styles['answerkey-cell']} key={choice}>
+                  <span className={styles['answerkey-label-header']}>{choice}</span>
+                </span>
+              ))}
+            </div>
+            {col.map(idx => (
+              <div className={styles['answerkey-row']} key={idx}>
+                <span className={styles['answerkey-cell']}>
+                  <span className={styles['answerkey-num']}>{idx + 1}.</span>
+                </span>
+                {choices.map(choice => (
+                  <span className={styles['answerkey-cell']} key={choice}>
+                    <label className={styles['answerkey-choice']}>
+                      <span className={styles['answerkey-bubble']}>
+                        <input
+                          type="radio"
+                          name={`item-${idx}`}
+                          value={choice}
+                          checked={answers[idx] === choice}
+                          onChange={() => handleSelect(idx, choice)}
+                        />
+                        {answers[idx] === choice ? <span className={styles['answerkey-filled']} /> : null}
+                      </span>
+                    </label>
+                  </span>
+                ))}
+              </div>
+            ))}
+          </div>
+        ))}
       </div>
-      <div className={styles.scantronSheetFooter}>
-        <button className={styles.bubbleSaveBtn} onClick={saveAnswerKey}>Save Answer Key</button>
-      </div>
+      <button
+        className={styles['answerkey-save-btn']}
+        onClick={handleSave}
+        disabled={!allAnswered}
+      >
+        {saved ? 'Saved!' : 'Save Answer Key'}
+      </button>
+      {!allAnswered && (
+        <div className={styles['answerkey-warning']}>All items must have an answer before saving.</div>
+      )}
     </div>
   );
 }
 
-export default AnswerKey; 
+export default AnswerKey;

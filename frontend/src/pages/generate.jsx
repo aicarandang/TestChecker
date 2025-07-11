@@ -6,6 +6,7 @@ import AnswerKey from './answer';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import UploadSheets from './upload';
+import Results from './results';
 
 const NAV_TABS = [
   { key: 'generate', label: 'Generate Sheet' },
@@ -64,34 +65,25 @@ function GenerateSheet() {
   const examDropdownRef = React.useRef(null);
   const choicesDropdownRef = React.useRef(null);
   const testDirectionsRef = useRef(null);
-  // Add state for drag-and-drop upload
-  const [uploadedFiles, setUploadedFiles] = useState([]);
-  const [isDragActive, setIsDragActive] = useState(false);
-  const fileInputRef = useRef(null);
 
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setIsDragActive(false);
-    const files = Array.from(e.dataTransfer.files);
-    setUploadedFiles((prev) => [...prev, ...files]);
-  };
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    setIsDragActive(true);
-  };
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    setIsDragActive(false);
-  };
-  const handleFileChange = (e) => {
-    const files = Array.from(e.target.files);
-    setUploadedFiles((prev) => [...prev, ...files]);
-  };
-  const handleClickDropZone = () => {
-    fileInputRef.current?.click();
-  };
+  useEffect(() => {
+    localStorage.setItem('answerSheets', JSON.stringify(sheets));
+    localStorage.setItem('selectedSheetId', selectedSheetId);
+  }, [sheets, selectedSheetId]);
 
-  // Helper to get minimum height for 2 rows
+  useEffect(() => {
+  if (sheets.length === 0 && location.state && Object.values(location.state).some(v => v)) {
+    const newSheet = {
+      id: location.state.id || Date.now().toString(),
+      name: location.state.name || 'Answer Sheet 1',
+      form: { ...location.state }
+    };
+    setSheets([newSheet]);
+    setSelectedSheetId(newSheet.id);
+    setActiveTab('generate');
+  }
+}, []);
+
   const getMinHeight = () => {
     const temp = document.createElement('textarea');
     temp.rows = 2;
@@ -406,16 +398,7 @@ function GenerateSheet() {
             {sheets.map(sheet => (
                 <div
                   key={sheet.id}
-                  className="sidebar-answer-item"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    background: sheet.id === selectedSheetId ? '#e0e0e0' : 'transparent',
-                    cursor: 'pointer',
-                    fontWeight: sheet.id === selectedSheetId ? 'bold' : 'normal',
-                    paddingRight: 8,
-                  }}
+                  className={`sidebar-answer-item${sheet.id === selectedSheetId ? ' active' : ''}`}
                   onClick={() => setSelectedSheetId(sheet.id)}
                 >
                   {editingName && sheet.id === selectedSheetId ? (
@@ -432,12 +415,11 @@ function GenerateSheet() {
                   ) : (
                     <>
                       <span className="sidebar-answer-title">{sheet.name}</span>
-                      <div style={{ display: 'flex', gap: 4 }}>
+                      <div className="sidebar-answer-actions">
                         <button
                           className="sidebar-edit-btn"
                           onClick={e => { e.stopPropagation(); setEditingName(true); }}
                           title="Rename"
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                         >
                           <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
                             <path d="M4 13.5V16h2.5l7.06-7.06-2.5-2.5L4 13.5z" stroke="#6b7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -462,7 +444,6 @@ function GenerateSheet() {
                             }
                           }}
                           title="Delete"
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                         >
                           <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
                             <path d="M6 8l1 8h6l1-8" stroke="#c00" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -654,73 +635,15 @@ function GenerateSheet() {
           {activeTab === 'answer' && (
             <AnswerKey examData={sheets.find(s => s.id === selectedSheetId)?.form} />
           )}
-          {activeTab === 'upload' && <UploadSheets />}
+          {activeTab === 'upload' && (
+            <UploadSheets />
+          )}
           {activeTab === 'results' && (
-            <ResultsTab />
+            <Results />
           )}
           </div>
         </main>
       </div>
-    </div>
-  );
-}
-
-// ResultsTab component for Results tab
-function ResultsTab() {
-  const [allResults, setAllResults] = useState([]);
-  const [selected, setSelected] = useState(0);
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('allOmrResults');
-      if (saved) setAllResults(JSON.parse(saved));
-    } catch {}
-  }, []);
-  if (!allResults.length) return <div>No results available. Please scan a sheet first.</div>;
-  const current = allResults[selected];
-  return (
-    <div>
-      <h2>Scanned Sheets Results</h2>
-      <div style={{ margin: '12px 0' }}>
-        <strong>Checked Sheets:</strong>
-        <ul style={{ listStyle: 'none', padding: 0 }}>
-          {allResults.map((r, idx) => (
-            <li key={r.id} style={{ marginBottom: 6 }}>
-              <button
-                style={{ fontWeight: idx === selected ? 700 : 400, marginRight: 8 }}
-                onClick={() => setSelected(idx)}
-              >
-                {r.fileName} ({r.checkedAt})
-              </button>
-              <span>Score: {r.score} / {r.total}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-      <div style={{ fontSize: '1.2rem', margin: '12px 0' }}>
-        <strong>Score:</strong> {current.score} / {current.total}
-      </div>
-      <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-        <thead>
-          <tr>
-            <th style={{ border: '1px solid #bbb', padding: 4 }}>#</th>
-            <th style={{ border: '1px solid #bbb', padding: 4 }}>Detected</th>
-            <th style={{ border: '1px solid #bbb', padding: 4 }}>Correct</th>
-            <th style={{ border: '1px solid #bbb', padding: 4 }}>Result</th>
-          </tr>
-        </thead>
-        <tbody>
-          {current.results.map(r => (
-            <tr key={r.number}>
-              <td style={{ border: '1px solid #bbb', padding: 4 }}>{r.number}</td>
-              <td style={{ border: '1px solid #bbb', padding: 4 }}>{r.detected}</td>
-              <td style={{ border: '1px solid #bbb', padding: 4 }}>{r.correct}</td>
-              <td style={{ border: '1px solid #bbb', padding: 4 }}>
-                {r.isCorrect === undefined ? '-' : r.isCorrect ? '✔️' : '❌'}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   );
 }
