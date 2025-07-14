@@ -38,12 +38,22 @@ function AnswerKey({ examData }) {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    setAnswers(prev => {
-      if (prev.length === numItems) return prev;
-      if (prev.length < numItems) return [...prev, ...Array(numItems - prev.length).fill(null)];
-      return prev.slice(0, numItems);
-    });
-  }, [numItems]);
+    // Always reset to empty if the answer key is missing or mismatched
+    const saved = localStorage.getItem(storageKey);
+    let shouldReset = false;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (!Array.isArray(parsed) || parsed.length !== numItems) shouldReset = true;
+      } catch { shouldReset = true; }
+    } else {
+      shouldReset = true;
+    }
+    if (shouldReset) {
+      setAnswers(Array(numItems).fill(null));
+      localStorage.setItem(storageKey, JSON.stringify(Array(numItems).fill(null)));
+    }
+  }, [storageKey, numItems]);
 
   const allAnswered = answers.length === numItems && answers.every(a => a !== null);
 

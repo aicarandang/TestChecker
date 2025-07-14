@@ -431,9 +431,17 @@ function GenerateSheet() {
                           onClick={e => {
                             e.stopPropagation();
                             if (sheets.length === 1) {
+                              // Delete answer key for the last sheet
+                              localStorage.removeItem(`answerKey_${sheet.id}`);
+                              // Delete scan results for the last sheet
+                              localStorage.removeItem(`scanResults_${sheet.id}`);
                               setSheets([]);
                               setSelectedSheetId(null);
                             } else {
+                              // Delete answer key for the deleted sheet
+                              localStorage.removeItem(`answerKey_${sheet.id}`);
+                              // Delete scan results for the deleted sheet
+                              localStorage.removeItem(`scanResults_${sheet.id}`);
                               const idx = sheets.findIndex(s => s.id === sheet.id);
                               const newSheets = sheets.filter(s => s.id !== sheet.id);
                               setSheets(newSheets);
@@ -636,7 +644,7 @@ function GenerateSheet() {
             <AnswerKey examData={sheets.find(s => s.id === selectedSheetId)?.form} />
           )}
           {activeTab === 'upload' && (
-            <UploadSheets />
+            <UploadSheets onScanComplete={() => setActiveTab('results')} />
           )}
           {activeTab === 'results' && (
             <Results />
