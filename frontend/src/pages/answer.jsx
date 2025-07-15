@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import styles from '../styles/answer.module.css';
+import { getAnswerKey, setAnswerKey } from '../utils/localStorage';
 
 const CHOICE_LABELS = ['A', 'B', 'C', 'D', 'E', 'F'];
 
-function AnswerKey({ examData }) {
+function AnswerKey({ sheetId, examData }) {
   const numItems = parseInt(examData?.numItems);
   const numChoices = parseInt(examData?.numChoices);
   const choices = CHOICE_LABELS.slice(0, numChoices);
-  const storageKey = examData?.id ? `answerKey_${examData.id}` : 'answerKey';
 
   if (!numItems || !numChoices || numItems < 1 || numChoices < 1) return null;
 
@@ -26,40 +26,25 @@ function AnswerKey({ examData }) {
   });
 
   const [answers, setAnswers] = useState(() => {
-    const saved = localStorage.getItem(storageKey);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length === numItems) return parsed;
-      } catch {}
-    }
+    const saved = getAnswerKey(sheetId);
+    if (Array.isArray(saved) && saved.length === numItems) return saved;
     return Array(numItems).fill(null);
   });
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    // Always reset to empty if the answer key is missing or mismatched
-    const saved = localStorage.getItem(storageKey);
-    let shouldReset = false;
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (!Array.isArray(parsed) || parsed.length !== numItems) shouldReset = true;
-      } catch { shouldReset = true; }
-    } else {
-      shouldReset = true;
-    }
-    if (shouldReset) {
-      setAnswers(Array(numItems).fill(null));
-      localStorage.setItem(storageKey, JSON.stringify(Array(numItems).fill(null)));
-    }
-  }, [storageKey, numItems]);
+    setAnswers(prev => {
+      if (prev.length === numItems) return prev;
+      if (prev.length < numItems) return [...prev, ...Array(numItems - prev.length).fill(null)];
+      return prev.slice(0, numItems);
+    });
+  }, [numItems]);
 
   const allAnswered = answers.length === numItems && answers.every(a => a !== null);
 
   const handleSave = () => {
     if (!allAnswered) return;
-    localStorage.setItem(storageKey, JSON.stringify(answers));
+    setAnswerKey(sheetId, answers);
     setSaved(true);
     setTimeout(() => setSaved(false), 1200);
   };

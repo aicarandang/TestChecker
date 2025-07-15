@@ -74,22 +74,24 @@
   margin-bottom: 20px;
   display: flex;
   align-items: flex-end;
-  border-bottom: 1px solid #bbb;
+  border-bottom: 2.5px solid #b6a97a;
   width: 100%;
   position: relative;
   background: transparent;
-  justify-content: space-between;
+  justify-content: flex-start;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 .generate-sheet-nav-btn {
-  flex: 1 1 0;
+  flex: 0 1 auto;
   text-align: center;
-  background: #fff;
+  background: transparent;
   border: none;
   border-radius: 0;
-  padding: 0 0 0 0;
+  padding: 0 36px;
   font-size: 1.13rem;
-  font-weight: 400;
+  font-weight: 500;
   color: #222;
   cursor: pointer;
   transition: color 0.2s, font-weight 0.2s;
@@ -100,11 +102,13 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  background: none;
 }
 
 .generate-sheet-nav-btn.active {
-  font-weight: 600;
+  font-weight: 700;
   color: #181818;
+  background: transparent;
 }
 
 .generate-sheet-nav-btn.active::after {
@@ -112,11 +116,10 @@
   position: absolute;
   left: 0;
   right: 0;
-  bottom: -1.5px;
-  height: 2px;
-  background: #181818;
+  bottom: -2.5px;
+  height: 3px;
+  background: #b6a97a;
   border-radius: 2px;
-  transform: translateY(50%);
   z-index: 2;
   pointer-events: none;
 }

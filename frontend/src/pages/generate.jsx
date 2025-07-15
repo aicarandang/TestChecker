@@ -1,12 +1,25 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import '../styles/sidebar.css';
 import styles from '../styles/generate.module.css';
 import AnswerKey from './answer';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import UploadSheets from './upload';
 import Results from './results';
+import Sidebar from '../components/sidebar';
+import Navbar from '../components/navbar';
+import {
+  getAnswerSheets,
+  setAnswerSheets,
+  getSelectedSheetId,
+  setSelectedSheetId,
+  removeAnswerKey,
+  removeScanResults,
+  removeUploads,
+  getTestDirectionsHeight,
+  setTestDirectionsHeight,
+  removeTestDirectionsHeight
+} from '../utils/localStorage';
 
 const NAV_TABS = [
   { key: 'generate', label: 'Generate Sheet' },
@@ -29,20 +42,15 @@ const DEFAULT_SHEET = () => ({
 });
 
 const getInitialSheets = () => {
-  const saved = localStorage.getItem('answerSheets');
-  if (saved) {
-    try {
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    } catch {}
-  }
-  return []; 
+  const saved = getAnswerSheets();
+  if (Array.isArray(saved) && saved.length > 0) return saved;
+  return [];
 };
 
 const getInitialSelectedId = (sheets) => {
-  const saved = localStorage.getItem('selectedSheetId');
+  const saved = getSelectedSheetId();
   if (saved && sheets.some(s => s.id === saved)) return saved;
-  return sheets[0]?.id || null; 
+  return sheets[0]?.id || null;
 };
 
 function GenerateSheet() {
@@ -67,8 +75,8 @@ function GenerateSheet() {
   const testDirectionsRef = useRef(null);
 
   useEffect(() => {
-    localStorage.setItem('answerSheets', JSON.stringify(sheets));
-    localStorage.setItem('selectedSheetId', selectedSheetId);
+    setAnswerSheets(sheets);
+    setSelectedSheetId(selectedSheetId);
   }, [sheets, selectedSheetId]);
 
   useEffect(() => {
@@ -101,7 +109,7 @@ function GenerateSheet() {
 
   useEffect(() => {
     if (testDirectionsRef.current) {
-      const savedHeight = localStorage.getItem('testDirectionsHeight');
+      const savedHeight = getTestDirectionsHeight(selectedSheetId);
       if (savedHeight) {
         testDirectionsRef.current.style.height = savedHeight + 'px';
       } else {
@@ -113,7 +121,7 @@ function GenerateSheet() {
 
   useEffect(() => {
     if (activeTab === 'generate' && testDirectionsRef.current) {
-      const savedHeight = localStorage.getItem('testDirectionsHeight');
+      const savedHeight = getTestDirectionsHeight(selectedSheetId);
       if (savedHeight) {
         testDirectionsRef.current.style.height = savedHeight + 'px';
       } else {
@@ -128,7 +136,7 @@ function GenerateSheet() {
       testDirectionsRef.current.style.height = 'auto';
       const minHeight = getMinHeight();
       const newHeight = Math.max(testDirectionsRef.current.scrollHeight, minHeight);
-      testDirectionsRef.current.style.height = newHeight + 'px';
+      setTestDirectionsHeight(selectedSheetId, newHeight);
     }
   }, [sheets.find(s => s.id === selectedSheetId)?.form.testDirections]);
 
@@ -188,8 +196,7 @@ function GenerateSheet() {
     textarea.style.height = 'auto';
     const minHeight = getMinHeight();
     const newHeight = Math.max(textarea.scrollHeight, minHeight);
-    textarea.style.height = newHeight + 'px';
-    localStorage.setItem('testDirectionsHeight', newHeight);
+    setTestDirectionsHeight(selectedSheetId, newHeight);
   };
 
   const handleFormSubmit = (e) => {
@@ -216,6 +223,8 @@ function GenerateSheet() {
     const gridTopGap = 10;
     const gridBottomGap = 10;
     const directionsGap = 14;
+    const numberWidth = 18;
+    const gap = 8;
 
     const numItems = parseInt(sheets.find(s => s.id === selectedSheetId)?.form.numItems) || 50;
     const numChoices = parseInt(sheets.find(s => s.id === selectedSheetId)?.form.numChoices) || 4;
@@ -308,10 +317,29 @@ function GenerateSheet() {
 
     let page = 0;
     let itemNum = 1;
+    // Store the grid start Y position for the first page
+    let gridStartY = null;
+    // Save grid layout params for backend
+    const gridLayoutParams = {
+      itemsPerColumn,
+      colWidth: (pageWidth - 120) / 2,
+      colX: [60, 60 + (pageWidth - 120) / 2],
+      rowH,
+      colW,
+      bubbleR,
+      numberWidth,
+      gap,
+      groupOffset: ((pageWidth - 120) / 2 - (numberWidth + gap + numChoices * colW)) / 2,
+      gridStartY: null, // will set below
+      numItems,
+      numChoices
+    };
     while (itemNum <= numItems) {
       if (page > 0) doc.addPage();
       renderBorder(doc);
       let y = renderHeaderAndDirections(doc, yStart);
+      if (gridStartY === null) gridStartY = y; // Save the Y position after header/directions for the first page
+      if (gridLayoutParams.gridStartY === null) gridLayoutParams.gridStartY = y;
       if (y + rowH + gridBottomGap > pageHeight - pageMargin) {
         doc.addPage();
         renderBorder(doc);
@@ -331,6 +359,8 @@ function GenerateSheet() {
       itemNum = pageEnd + 1;
       page++;
     }
+    // Save gridStartY and gridLayoutParams in the selected sheet's form for backend use
+    setSheets(sheets => sheets.map(s => s.id === selectedSheetId ? { ...s, form: { ...s.form, gridStartY, gridLayoutParams } } : s));
     const selectedSheet = sheets.find(s => s.id === selectedSheetId);
     let filename = selectedSheet?.name && selectedSheet.name.trim() ? selectedSheet.name.trim().replace(/[^a-zA-Z0-9-_ ]/g, '').replace(/\s+/g, '_') + '.pdf' : 'answer-sheet.pdf';
     doc.save(filename);
@@ -367,15 +397,43 @@ function GenerateSheet() {
     setActiveTab('generate');
   };
 
+  // Handler for editing sheet name
+  const handleEditSheetName = (id, newName) => {
+    setSheets(sheets.map(s => s.id === id ? { ...s, name: newName } : s));
+  };
+
+  // Handler for deleting a sheet and its data
+  const handleDeleteSheet = (id) => {
+    removeAnswerKey(id);
+    removeScanResults(id);
+    removeUploads(id);
+    removeTestDirectionsHeight(id);
+    const idx = sheets.findIndex(s => s.id === id);
+    const newSheets = sheets.filter(s => s.id !== id);
+    setSheets(newSheets);
+    if (id === selectedSheetId) {
+      if (newSheets.length === 0) {
+        setSelectedSheetId(null);
+      } else {
+        const nextIdx = idx < newSheets.length ? idx : newSheets.length - 1;
+        setSelectedSheetId(newSheets[nextIdx].id);
+      }
+    }
+  };
+
   if (sheets.length === 0) {
     return (
       <div className={styles['generate-sheet-outer']}>
         <div className={styles['generate-sheet-container']}>
-          <aside className="sidebar">
-            <h2>Dashboard</h2>
-            <button className="new-answer-sheet-btn" onClick={handleNewAnswerSheet}>+ New Answer Sheet</button>
-            <div className="sidebar-answer-list"></div>
-          </aside>
+          <Sidebar
+            title="Dashboard"
+            sheets={sheets}
+            selectedSheetId={selectedSheetId}
+            onSelectSheet={setSelectedSheetId}
+            onEditSheetName={handleEditSheetName}
+            onDeleteSheet={handleDeleteSheet}
+            onNewSheet={handleNewAnswerSheet}
+          />
           <main className={styles['generate-sheet-content']}>
             <div className={styles['generate-empty-state']}>
               <div className={styles['generate-empty-state__text']}>
@@ -391,98 +449,22 @@ function GenerateSheet() {
   return (
     <div className={styles['generate-sheet-outer']}>
       <div className={styles['generate-sheet-container']}>
-        <aside className="sidebar">
-          <h2>Dashboard</h2>
-          <button className="new-answer-sheet-btn" onClick={handleNewAnswerSheet}>+ New Answer Sheet</button>
-          <div className="sidebar-answer-list">
-            {sheets.map(sheet => (
-                <div
-                  key={sheet.id}
-                  className={`sidebar-answer-item${sheet.id === selectedSheetId ? ' active' : ''}`}
-                  onClick={() => setSelectedSheetId(sheet.id)}
-                >
-                  {editingName && sheet.id === selectedSheetId ? (
-                    <input
-                      className="sidebar-answer-edit-input"
-                      value={sheet.name}
-                      onChange={e => {
-                        setSheets(sheets.map(s => s.id === sheet.id ? { ...s, name: e.target.value } : s));
-                      }}
-                      onBlur={() => setEditingName(false)}
-                      autoFocus
-                      onClick={e => e.stopPropagation()}
-                    />
-                  ) : (
-                    <>
-                      <span className="sidebar-answer-title">{sheet.name}</span>
-                      <div className="sidebar-answer-actions">
-                        <button
-                          className="sidebar-edit-btn"
-                          onClick={e => { e.stopPropagation(); setEditingName(true); }}
-                          title="Rename"
-                        >
-                          <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                            <path d="M4 13.5V16h2.5l7.06-7.06-2.5-2.5L4 13.5z" stroke="#6b7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                            <path d="M14.06 6.44a1.5 1.5 0 0 0 0-2.12l-1.38-1.38a1.5 1.5 0 0 0-2.12 0l-1.06 1.06 3.5 3.5 1.06-1.06z" stroke="#6b7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                        </button>
-                        <button
-                          className="sidebar-delete-btn"
-                          onClick={e => {
-                            e.stopPropagation();
-                            if (sheets.length === 1) {
-                              // Delete answer key for the last sheet
-                              localStorage.removeItem(`answerKey_${sheet.id}`);
-                              // Delete scan results for the last sheet
-                              localStorage.removeItem(`scanResults_${sheet.id}`);
-                              setSheets([]);
-                              setSelectedSheetId(null);
-                            } else {
-                              // Delete answer key for the deleted sheet
-                              localStorage.removeItem(`answerKey_${sheet.id}`);
-                              // Delete scan results for the deleted sheet
-                              localStorage.removeItem(`scanResults_${sheet.id}`);
-                              const idx = sheets.findIndex(s => s.id === sheet.id);
-                              const newSheets = sheets.filter(s => s.id !== sheet.id);
-                              setSheets(newSheets);
-                              if (sheet.id === selectedSheetId) {
-                                const nextIdx = idx < newSheets.length ? idx : newSheets.length - 1;
-                                setSelectedSheetId(newSheets[nextIdx].id);
-                              }
-                            }
-                          }}
-                          title="Delete"
-                        >
-                          <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                            <path d="M6 8l1 8h6l1-8" stroke="#c00" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                            <path d="M4 6h12M9 6V4a1 1 0 0 1 1-1h0a1 1 0 0 1 1 1v2" stroke="#c00" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              ))
-            }
-          </div>
-        </aside>
+        <Sidebar
+          title="Dashboard"
+          sheets={sheets}
+          selectedSheetId={selectedSheetId}
+          onSelectSheet={setSelectedSheetId}
+          onEditSheetName={handleEditSheetName}
+          onDeleteSheet={handleDeleteSheet}
+          onNewSheet={handleNewAnswerSheet}
+        />
         <main className={styles['generate-sheet-content']}>
           <h2 className={styles['generate-sheet-title']}>{sheets.find(s => s.id === selectedSheetId)?.name}</h2>
-          <nav className={styles['generate-sheet-navbar']}>
-            {NAV_TABS.map((tab) => (
-              <button
-                key={tab.key}
-                className={
-                  styles['generate-sheet-nav-btn'] + (activeTab === tab.key ? ' ' + styles['active'] : '')
-                }
-                type="button"
-                onClick={() => setActiveTab(tab.key)}
-                aria-current={activeTab === tab.key ? 'page' : undefined}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </nav>
+          <Navbar
+            tabs={NAV_TABS}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+          />
           <div className={styles['generate-sheet-scrollable']}>
           {activeTab === 'generate' && (
               <form className={styles['generate-sheet-form']} autoComplete="off" onSubmit={handleFormSubmit}>
@@ -641,13 +623,13 @@ function GenerateSheet() {
               </form>
           )}
           {activeTab === 'answer' && (
-            <AnswerKey examData={sheets.find(s => s.id === selectedSheetId)?.form} />
+            <AnswerKey sheetId={selectedSheetId} examData={sheets.find(s => s.id === selectedSheetId)?.form} />
           )}
           {activeTab === 'upload' && (
-            <UploadSheets onScanComplete={() => setActiveTab('results')} />
+            <UploadSheets sheetId={selectedSheetId} />
           )}
           {activeTab === 'results' && (
-            <Results />
+            <Results sheetId={selectedSheetId} />
           )}
           </div>
         </main>

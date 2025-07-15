@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import '../styles/sidebar.css';
+import Sidebar from '../components/sidebar';
 import styles from '../styles/dashboard.module.css';
 
 function Dashboard() {
@@ -23,10 +23,7 @@ function Dashboard() {
   return (
     <div className={styles['dashboard-outer']}>
       <div className={styles['dashboard-container']}>
-        <aside className="sidebar">
-          <h2>Dashboard</h2>
-          <button className="new-answer-sheet-btn" onClick={handleCreate}>+ New Answer Sheet</button>
-        </aside>
+        <Sidebar title="Dashboard" onNewSheet={handleCreate} />
         <div className={styles['dashboard-main-container']}>
           <div className={styles['dashboard-content']}>
             <h1 className={styles['dashboard-title']}>SNAPCHECK</h1>

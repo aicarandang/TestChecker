@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import '../styles/sidebar.css';
+import Sidebar from '../components/sidebar';
 import styles from '../styles/sheet.module.css';
 
 function AnswerSheet() {
@@ -99,10 +99,7 @@ function AnswerSheet() {
   return (
     <div className={styles['answer-sheet-outer']}>
       <div className={styles['answer-sheet-container']}>
-        <aside className="sidebar">
-          <h2>Dashboard</h2>
-          <button className="new-answer-sheet-btn" onClick={handleNewAnswerSheet}>+ New Answer Sheet</button>
-        </aside>
+        <Sidebar title="Dashboard" onNewSheet={handleNewAnswerSheet} />
         <main className={styles['answer-sheet-content']}>
           <h2 className={styles['answer-sheet-title']}>Create Answer Sheet</h2>
           <div className={styles['answer-sheet-scrollable']}>
