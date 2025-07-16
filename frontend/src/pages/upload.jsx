@@ -11,7 +11,9 @@ function UploadSheets({ sheetId }) {
   const fileInputRef = useRef();
 
   const handleFileChange = (e) => {
-    const selectedFiles = Array.from(e.target.files).filter(f => ['image/png', 'image/jpeg'].includes(f.type));
+    const selectedFiles = Array.from(e.target.files).filter(f => 
+      ['image/png', 'image/jpeg', 'application/pdf'].includes(f.type)
+    );
     setFiles(prev => [...prev, ...selectedFiles]);
     // Set status to 'idle' for new files
     setStatuses(prev => ({ ...prev, ...Object.fromEntries(selectedFiles.map(f => [f.name, 'idle'])) }));
@@ -85,7 +87,7 @@ function UploadSheets({ sheetId }) {
       <div className={styles['upload-dropzone']} onClick={handleBrowseClick}>
         <input
           type="file"
-          accept=".png,.jpg,.jpeg"
+          accept=".png,.jpg,.jpeg,.pdf"
           ref={fileInputRef}
           style={{ display: 'none' }}
           onChange={handleFileChange}
@@ -97,14 +99,16 @@ function UploadSheets({ sheetId }) {
             <rect x="8" y="38" width="32" height="4" rx="2" fill="#444" fillOpacity="0.12"/>
           </svg>
         </div>
-        <div className={styles['upload-text']}>Drop or click to upload PNG/JPG test papers</div>
+        <div className={styles['upload-text']}>Drop or click to upload PNG/JPG/PDF test papers</div>
       </div>
       {files.length > 0 && (
         <div className={styles['upload-files-list']}>
           {files.map((f, idx) => (
             <div className={styles['upload-file-item']} key={f.name + idx}>
               <span className={styles['upload-file-name']}>{f.name}</span>
-              <span className={styles['upload-file-type']}>{f.type.replace('image/', '').toUpperCase()}</span>
+              <span className={styles['upload-file-type']}>
+                {f.type === 'application/pdf' ? 'PDF' : f.type.replace('image/', '').toUpperCase()}
+              </span>
               <span className={styles['upload-file-status']}>
                 {statuses[f.name] === 'checked' && '✅ Checked'}
                 {statuses[f.name] === 'pending' && '⏳ Pending'}

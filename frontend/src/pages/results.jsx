@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styles from '../styles/results.module.css';
+import * as XLSX from 'xlsx';
 
 function Results({ sheetId }) {
   const [results, setResults] = useState([]);
@@ -39,6 +40,65 @@ function Results({ sheetId }) {
     }
   };
 
+  // Add Excel export functionality
+  const handleExportToExcel = () => {
+    if (results.length === 0) {
+      alert('No results to export');
+      return;
+    }
+
+    // Prepare data for Excel
+    const excelData = results.map((result, index) => {
+      const row = {
+        'No.': index + 1,
+        'Name': result.name || '-',
+        'Course/Section': result.section || '-',
+        'Score': result.score != null ? result.score : '-',
+        'Total Items': result.item_results ? result.item_results.length : 0,
+        'Correct Answers': result.item_results ? result.item_results.filter(item => item.correct).length : 0,
+        'Percentage': result.item_results && result.item_results.length > 0 
+          ? `${((result.score / result.item_results.length) * 100).toFixed(2)}%` 
+          : '-'
+      };
+
+      // Add individual item results
+      if (result.item_results) {
+        result.item_results.forEach((item, itemIndex) => {
+          row[`Item ${item.number} Answer`] = item.answer || '-';
+          row[`Item ${item.number} Correct Answer`] = item.correct_answer || '-';
+          row[`Item ${item.number} Status`] = item.correct ? 'Correct' : 'Incorrect';
+        });
+      }
+
+      return row;
+    });
+
+    // Create workbook and worksheet
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(excelData);
+
+    // Auto-size columns
+    const colWidths = [];
+    excelData.forEach(row => {
+      Object.keys(row).forEach((key, index) => {
+        const length = Math.max(key.length, String(row[key]).length);
+        colWidths[index] = Math.max(colWidths[index] || 0, length);
+      });
+    });
+
+    ws['!cols'] = colWidths.map(width => ({ width: Math.min(width + 2, 50) }));
+
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'Test Results');
+
+    // Generate filename with timestamp
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+    const filename = `test_results_${timestamp}.xlsx`;
+
+    // Save file
+    XLSX.writeFile(wb, filename);
+  };
+
   const handleCloseModal = () => {
     setShowModal(false);
     setSelected(null);
@@ -50,8 +110,19 @@ function Results({ sheetId }) {
       {results.length === 0 ? (
         <div className={styles['results-empty']}>No checked test papers yet.</div>
       ) : (
-        <div className={styles['results-table-container']}>
-          <table className={styles['results-table']}>
+        <>
+          <div className={styles['results-header']}>
+            <h2>Test Results</h2>
+            <button 
+              onClick={handleExportToExcel} 
+              className={styles['results-export-btn']}
+              title="Export all results to Excel file"
+            >
+              📊 Export to Excel
+            </button>
+          </div>
+          <div className={styles['results-table-container']}>
+            <table className={styles['results-table']}>
             <thead>
               <tr>
                 <th>Name</th>
@@ -86,6 +157,7 @@ function Results({ sheetId }) {
             </tbody>
           </table>
         </div>
+        </>
       )}
       {showModal && selected && (
         <div className={styles['results-modal-overlay']} onClick={handleCloseModal}>

@@ -9,6 +9,7 @@ from PIL import Image
 import pytesseract
 import base64
 import json
+import fitz  # PyMuPDF
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
@@ -17,6 +18,33 @@ CORS(app, resources={r"/api/*": {"origins": "*"}})
 def image_to_base64(img):
     _, buffer = cv2.imencode('.png', img)
     return 'data:image/png;base64,' + base64.b64encode(buffer).decode('utf-8')
+
+# Helper: Convert PDF to image
+def pdf_to_image(pdf_bytes, page_number=0):
+    """Convert PDF page to OpenCV image format"""
+    try:
+        # Open PDF from bytes
+        pdf_document = fitz.open(stream=pdf_bytes, filetype="pdf")
+        
+        # Get the first page
+        page = pdf_document[page_number]
+        
+        # Convert page to image with higher resolution
+        mat = page.get_pixmap(matrix=fitz.Matrix(2.0, 2.0))  # type: ignore
+        
+        # Convert to PIL Image
+        pil_image = Image.frombytes("RGB", (mat.width, mat.height), mat.samples)  # type: ignore
+        
+        # Convert PIL image to OpenCV format
+        opencv_image = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
+        
+        # Close the document
+        pdf_document.close()
+        
+        return opencv_image
+    except Exception as e:
+        print(f"Error converting PDF to image: {e}")
+        return None
 
 # Helper: Extract text from a region
 def ocr_region(img, x, y, w, h):
@@ -40,7 +68,8 @@ def detect_bubbles(img, bubble_coords, threshold=0.5):
         for idx, (x, y, r) in enumerate(item_bubbles):
             mask = np.zeros(img.shape[:2], dtype=np.uint8)
             cv2.circle(mask, (x, y), r, 255, -1)
-            mean = cv2.mean(img, mask=mask)[0]
+            mean_result = cv2.mean(img, mask=mask)
+            mean = float(mean_result[0])  # type: ignore
             fill = 255 - mean  # Invert: filled = dark
             if fill > max_fill and fill > threshold * 255:
                 max_fill = fill
@@ -53,10 +82,29 @@ def check_sheet():
     file = request.files['file']
     test_info = json.loads(request.form['test_info'])
     answer_key = json.loads(request.form['answer_key'])
-
-    # Read image
-    in_memory = np.frombuffer(file.read(), np.uint8)
-    img = cv2.imdecode(in_memory, cv2.IMREAD_COLOR)
+    
+    # Get file extension to determine if it's PDF or image
+    filename = file.filename or ''
+    is_pdf = filename.lower().endswith('.pdf')
+    
+    # Read file content
+    file_content = file.read()
+    
+    # Process based on file type
+    if is_pdf:
+        # Convert PDF to image
+        img = pdf_to_image(file_content)
+        if img is None:
+            return jsonify({'error': 'Failed to convert PDF to image'}), 400
+    else:
+        # Read image
+        in_memory = np.frombuffer(file_content, np.uint8)
+        img = cv2.imdecode(in_memory, cv2.IMREAD_COLOR)
+        
+        # Check if image was successfully decoded
+        if img is None:
+            return jsonify({'error': 'Failed to decode image'}), 400
+    
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
     # --- PDF and image scaling ---
@@ -76,7 +124,7 @@ def check_sheet():
         col_x_pdf = grid_params.get('colX', [60, 60 + (pdf_page_width - 120) / 2])
         row_h_pdf = grid_params.get('rowH', 22)
         col_w_pdf = grid_params.get('colW', 20)
-        bubble_r_pdf = grid_params.get('bubbleR', 10)
+        bubble_r_pdf = grid_params.get('bubbleR', 7)
         number_width_pdf = grid_params.get('numberWidth', 18)
         gap_pdf = grid_params.get('gap', 8)
         group_offset_pdf = grid_params.get('groupOffset', (col_width_pdf - (number_width_pdf + gap_pdf + num_choices * col_w_pdf)) / 2)
@@ -100,7 +148,7 @@ def check_sheet():
     col_x = [int(x * scale_x) for x in col_x_pdf]
     col_width = col_width_pdf * scale_x
     row_h = int(row_h_pdf * scale_y)
-    row_h = int(row_h * 1.04)  # Increase vertical gap by 10%
+    row_h = int(row_h * 1.04)
     col_w = int(col_w_pdf * scale_x)
     bubble_r = int(bubble_r_pdf * ((scale_x + scale_y) / 2))
     number_width = int(number_width_pdf * scale_x)
