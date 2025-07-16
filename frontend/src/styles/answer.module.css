@@ -9,7 +9,7 @@
 
 .answerkey-grid {
   display: grid;
-  gap: 32px;
+  gap: 48px;
   justify-content: center;
   margin-bottom: 18px;
   width: 100%;
@@ -21,7 +21,7 @@
 .answerkey-col {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 10px;
 }
 
 .answerkey-label-header {
@@ -138,11 +138,11 @@
 
 @media (max-width: 900px) {
   .answerkey-grid {
-    gap: 8px;
+    gap: 18px;
     max-width: 100vw;
   }
   .answerkey-col {
-    gap: 4px;
+    gap: 8px;
   }
   .answerkey-row {
     font-size: 0.95rem;
@@ -155,7 +155,10 @@
 @media (max-width: 600px) {
   .answerkey-grid {
     grid-template-columns: 1fr !important;
-    gap: 4px;
+    gap: 8px;
     max-width: 100vw;
+  }
+  .answerkey-col {
+    gap: 4px;
   }
 }

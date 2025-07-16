@@ -76,7 +76,7 @@ def check_sheet():
         col_x_pdf = grid_params.get('colX', [60, 60 + (pdf_page_width - 120) / 2])
         row_h_pdf = grid_params.get('rowH', 22)
         col_w_pdf = grid_params.get('colW', 20)
-        bubble_r_pdf = grid_params.get('bubbleR', 7)
+        bubble_r_pdf = grid_params.get('bubbleR', 10)
         number_width_pdf = grid_params.get('numberWidth', 18)
         gap_pdf = grid_params.get('gap', 8)
         group_offset_pdf = grid_params.get('groupOffset', (col_width_pdf - (number_width_pdf + gap_pdf + num_choices * col_w_pdf)) / 2)
@@ -100,6 +100,7 @@ def check_sheet():
     col_x = [int(x * scale_x) for x in col_x_pdf]
     col_width = col_width_pdf * scale_x
     row_h = int(row_h_pdf * scale_y)
+    row_h = int(row_h * 1.04)  # Increase vertical gap by 10%
     col_w = int(col_w_pdf * scale_x)
     bubble_r = int(bubble_r_pdf * ((scale_x + scale_y) / 2))
     number_width = int(number_width_pdf * scale_x)
