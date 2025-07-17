@@ -72,13 +72,12 @@ def detect_bubbles(img, bubble_coords, threshold=0.5):
             fill = 255 - mean  # Invert: filled = dark
             if fill > threshold * 255:
                 filled_bubbles.append(idx)
-        # If more than one bubble is filled, mark as invalid (None)
-        # If exactly one bubble is filled, use that answer
-        # If no bubbles are filled, mark as None (no answer)
         if len(filled_bubbles) == 1:
             answers.append(filled_bubbles[0])
+        elif len(filled_bubbles) > 1:
+            answers.append('Multiple Answers')
         else:
-            answers.append(None)  # Invalid or no answer
+            answers.append(None)  # No answer
     return answers
 
 @app.route('/api/check', methods=['POST'])
@@ -187,7 +186,14 @@ def check_sheet():
     # --- OMR: Detect filled bubbles ---
     answers_idx = detect_bubbles(gray, bubble_coords)
     choice_labels = ['A', 'B', 'C', 'D', 'E', 'F'][:num_choices]
-    answers = [choice_labels[idx] if idx is not None else None for idx in answers_idx]
+    answers = []
+    for idx in answers_idx:
+        if idx == 'Multiple Answers':
+            answers.append('Multiple Answers')
+        elif idx is not None:
+            answers.append(choice_labels[idx])
+        else:
+            answers.append(None)
 
     # --- Scoring ---
     score = 0
