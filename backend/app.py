@@ -63,18 +63,22 @@ def ocr_region(img, x, y, w, h):
 def detect_bubbles(img, bubble_coords, threshold=0.5):
     answers = []
     for item_bubbles in bubble_coords:
-        filled = None
-        max_fill = 0
+        filled_bubbles = []
         for idx, (x, y, r) in enumerate(item_bubbles):
             mask = np.zeros(img.shape[:2], dtype=np.uint8)
             cv2.circle(mask, (x, y), r, 255, -1)
             mean_result = cv2.mean(img, mask=mask)
             mean = float(mean_result[0])  # type: ignore
             fill = 255 - mean  # Invert: filled = dark
-            if fill > max_fill and fill > threshold * 255:
-                max_fill = fill
-                filled = idx
-        answers.append(filled)
+            if fill > threshold * 255:
+                filled_bubbles.append(idx)
+        # If more than one bubble is filled, mark as invalid (None)
+        # If exactly one bubble is filled, use that answer
+        # If no bubbles are filled, mark as None (no answer)
+        if len(filled_bubbles) == 1:
+            answers.append(filled_bubbles[0])
+        else:
+            answers.append(None)  # Invalid or no answer
     return answers
 
 @app.route('/api/check', methods=['POST'])
