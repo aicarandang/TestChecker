@@ -46,6 +46,38 @@ def pdf_to_image(pdf_bytes, page_number=0):
         print(f"Error converting PDF to image: {e}")
         return None
 
+# Helper: Detect black border rectangle
+def detect_black_border(img):
+    """Detect the black border rectangle and return its coordinates and dimensions"""
+    try:
+        # Convert to grayscale
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        
+        # Apply threshold to find dark regions
+        _, thresh = cv2.threshold(gray, 50, 255, cv2.THRESH_BINARY_INV)
+        
+        # Find contours
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        # Find the largest contour (should be the border)
+        if not contours:
+            return None
+        
+        largest_contour = max(contours, key=cv2.contourArea)
+        
+        # Get bounding rectangle
+        x, y, w, h = cv2.boundingRect(largest_contour)
+        
+        # Filter by size (should be large enough to be the main border)
+        min_area = img.shape[0] * img.shape[1] * 0.3  # At least 30% of image
+        if w * h < min_area:
+            return None
+        
+        return (x, y, w, h)
+    except Exception as e:
+        print(f"Error detecting black border: {e}")
+        return None
+
 # Helper: Extract text from a region
 def ocr_region(img, x, y, w, h):
     roi = img[y:y+h, x:x+w]
@@ -108,14 +140,27 @@ def check_sheet():
         if img is None:
             return jsonify({'error': 'Failed to decode image'}), 400
     
+    # Detect black border
+    border_info = detect_black_border(img)
+    if border_info is None:
+        return jsonify({'error': 'Could not detect black border in the image'}), 400
+    
+    border_x, border_y, border_w, border_h = border_info
+    
+    # Crop image to border region
+    cropped_img = img[border_y:border_y+border_h, border_x:border_x+border_w]
+    
+    # Use cropped image for all processing
+    img = cropped_img
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-    # --- PDF and image scaling ---
-    pdf_page_width = 595
-    pdf_page_height = 842
-    image_height, image_width = img.shape[:2]
-    scale_x = image_width / pdf_page_width
-    scale_y = image_height / pdf_page_height
+    # --- Reference dimensions (standard A4 proportions within border) ---
+    ref_width = 595  # Reference width (PDF points)
+    ref_height = 842  # Reference height (PDF points)
+    
+    # Calculate scaling factors based on detected border
+    scale_x = border_w / ref_width
+    scale_y = border_h / ref_height
 
     # --- Layout parameters (from frontend) ---
     num_items = int(test_info['num_items'])
@@ -123,8 +168,8 @@ def check_sheet():
     grid_params = test_info.get('grid_layout_params', {})
     if grid_params:
         items_per_column = grid_params.get('itemsPerColumn', 25)
-        col_width_pdf = grid_params.get('colWidth', (pdf_page_width - 120) / 2)
-        col_x_pdf = grid_params.get('colX', [60, 60 + (pdf_page_width - 120) / 2])
+        col_width_pdf = grid_params.get('colWidth', (ref_width - 120) / 2)
+        col_x_pdf = grid_params.get('colX', [60, 60 + (ref_width - 120) / 2])
         row_h_pdf = grid_params.get('rowH', 22)
         col_w_pdf = grid_params.get('colW', 20)
         bubble_r_pdf = grid_params.get('bubbleR', 7)
@@ -136,7 +181,7 @@ def check_sheet():
         grid_start_y = int(grid_start_y_pdf * scale_y)
     else:
         items_per_column = 25
-        col_width_pdf = (pdf_page_width - 120) / 2
+        col_width_pdf = (ref_width - 120) / 2
         col_x_pdf = [60, 60 + col_width_pdf]
         row_h_pdf = 22
         col_w_pdf = 20
@@ -211,6 +256,10 @@ def check_sheet():
 
     # --- Annotate image ---
     annotated = img.copy()
+    
+    # Draw the detected border (for debugging)
+    cv2.rectangle(annotated, (0, 0), (border_w, border_h), (255, 255, 0), 2)
+    
     for i, item_bubbles in enumerate(bubble_coords):
         for c, (x, y, r) in enumerate(item_bubbles):
             color = (0, 255, 0) if answers_idx[i] == c and answers[i] == answer_key[i] else (0, 0, 255) if answers_idx[i] == c else (180, 180, 180)

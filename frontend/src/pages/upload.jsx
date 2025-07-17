@@ -69,9 +69,34 @@ function UploadSheets({ sheetId }) {
         }
         const result = await res.json();
         // Save result in localStorage (append to scanResults for this sheet)
-        const prevResults = JSON.parse(localStorage.getItem(`scanResults_${sheetId}`) || '[]');
-        localStorage.setItem(`scanResults_${sheetId}`, JSON.stringify([...prevResults, result]));
-        setStatuses(prev => ({ ...prev, [file.name]: 'checked' }));
+        try {
+          const prevResults = JSON.parse(localStorage.getItem(`scanResults_${sheetId}`) || '[]');
+          localStorage.setItem(`scanResults_${sheetId}`, JSON.stringify([...prevResults, result]));
+          setStatuses(prev => ({ ...prev, [file.name]: 'checked' }));
+        } catch (storageError) {
+          if (storageError.name === 'QuotaExceededError') {
+            // localStorage is full, clear old results and try again
+            try {
+              // Clear all scan results to free up space
+              const keys = Object.keys(localStorage);
+              keys.forEach(key => {
+                if (key.startsWith('scanResults_')) {
+                  localStorage.removeItem(key);
+                }
+              });
+              // Try saving again
+              localStorage.setItem(`scanResults_${sheetId}`, JSON.stringify([result]));
+              setStatuses(prev => ({ ...prev, [file.name]: 'checked' }));
+              setMessage('Storage was full. Old results cleared. Current result saved.');
+            } catch (retryError) {
+              console.error('Failed to save even after clearing storage:', retryError);
+              setStatuses(prev => ({ ...prev, [file.name]: 'error' }));
+              setMessage('Error: Storage is full and could not be cleared. Please clear some results manually.');
+            }
+          } else {
+            throw storageError;
+          }
+        }
       } catch (err) {
         console.error('Error checking file:', err);
         setStatuses(prev => ({ ...prev, [file.name]: 'error' }));
