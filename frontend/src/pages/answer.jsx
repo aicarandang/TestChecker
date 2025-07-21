@@ -9,7 +9,8 @@ function AnswerKey({ sheetId, examData }) {
   const numChoices = parseInt(examData?.numChoices);
   const choices = CHOICE_LABELS.slice(0, numChoices);
 
-  if (!numItems || !numChoices || numItems < 1 || numChoices < 1) return null;
+  // Wait for examData to be available
+  if (!examData || !numItems || !numChoices || numItems < 1 || numChoices < 1) return null;
 
   let numCols = 3;
   if (numItems <= 10) numCols = 1;
@@ -31,25 +32,54 @@ function AnswerKey({ sheetId, examData }) {
     return Array(numItems).fill(null);
   });
   const [saved, setSaved] = useState(false);
+  const [lastSaved, setLastSaved] = useState(() => {
+    const saved = getAnswerKey(sheetId);
+    if (Array.isArray(saved) && saved.length === numItems) return saved;
+    return Array(numItems).fill(null);
+  });
+  const [editMode, setEditMode] = useState(false);
 
+  // Reload answers and lastSaved when sheetId or numItems changes
   useEffect(() => {
-    setAnswers(prev => {
-      if (prev.length === numItems) return prev;
-      if (prev.length < numItems) return [...prev, ...Array(numItems - prev.length).fill(null)];
-      return prev.slice(0, numItems);
-    });
-  }, [numItems]);
+    const saved = getAnswerKey(sheetId);
+    if (Array.isArray(saved) && saved.length === numItems) {
+      setAnswers(saved);
+      setLastSaved(saved);
+      setEditMode(false);
+    } else if (Array.isArray(saved) && saved.length > numItems) {
+      setAnswers(saved.slice(0, numItems));
+      setLastSaved(saved.slice(0, numItems));
+      setEditMode(false);
+    } else if (Array.isArray(saved) && saved.length < numItems) {
+      setAnswers([...saved, ...Array(numItems - saved.length).fill(null)]);
+      setLastSaved([...saved, ...Array(numItems - saved.length).fill(null)]);
+      setEditMode(false);
+    } else {
+      setAnswers(Array(numItems).fill(null));
+      setLastSaved(Array(numItems).fill(null));
+      setEditMode(false);
+    }
+  }, [sheetId, numItems]);
 
   const allAnswered = answers.length === numItems && answers.every(a => a !== null);
+  const isEdited = !lastSaved.every((v, i) => v === answers[i]);
 
+  const handleEdit = () => setEditMode(true);
+  const handleCancel = () => {
+    setAnswers(lastSaved);
+    setEditMode(false);
+  };
   const handleSave = () => {
     if (!allAnswered) return;
     setAnswerKey(sheetId, answers);
+    setLastSaved(answers);
     setSaved(true);
+    setEditMode(false);
     setTimeout(() => setSaved(false), 1200);
   };
 
   const handleSelect = (idx, choice) => {
+    if (!editMode) return;
     setAnswers(prev => {
       const next = [...prev];
       next[idx] = choice;
@@ -84,13 +114,14 @@ function AnswerKey({ sheetId, examData }) {
                 {choices.map(choice => (
                   <span className={styles['answerkey-cell']} key={choice}>
                     <label className={styles['answerkey-choice']}>
-                      <span className={styles['answerkey-bubble']}>
+                      <span className={styles['answerkey-bubble'] + (!editMode ? ' ' + styles['answerkey-bubble-disabled'] : '')}>
                         <input
                           type="radio"
                           name={`item-${idx}`}
                           value={choice}
                           checked={answers[idx] === choice}
                           onChange={() => handleSelect(idx, choice)}
+                          disabled={!editMode}
                         />
                         {answers[idx] === choice ? <span className={styles['answerkey-filled']} /> : null}
                       </span>
@@ -102,13 +133,22 @@ function AnswerKey({ sheetId, examData }) {
           </div>
         ))}
       </div>
-      <button
-        className={styles['answerkey-save-btn']}
-        onClick={handleSave}
-        disabled={!allAnswered}
-      >
-        {saved ? 'Saved!' : 'Save Answer Key'}
-      </button>
+      {editMode ? (
+        <button
+          className={styles['answerkey-save-btn']}
+          onClick={isEdited ? handleSave : handleCancel}
+          disabled={isEdited && !allAnswered}
+        >
+          {isEdited ? (saved ? 'Saved!' : 'Save Answer Key') : 'Cancel'}
+        </button>
+      ) : (
+        <button
+          className={styles['answerkey-save-btn']}
+          onClick={handleEdit}
+        >
+          Edit Answer Key
+        </button>
+      )}
       {!allAnswered && (
         <div className={styles['answerkey-warning']}>All items must have an answer before saving.</div>
       )}

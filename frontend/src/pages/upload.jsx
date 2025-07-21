@@ -3,21 +3,29 @@ import styles from '../styles/upload.module.css';
 import { useNavigate } from 'react-router-dom';
 import { getUploads, setUploads, setScanResults, getAnswerKey } from '../utils/localStorage';
 
-function UploadSheets({ sheetId }) {
+function UploadSheets({ sheetId, onSeeResults }) {
   const [files, setFiles] = useState([]);
-  const [statuses, setStatuses] = useState({}); // { filename: 'idle' | 'pending' | 'checked' | 'error' }
+  const [statuses, setStatuses] = useState({}); 
   const [message, setMessage] = useState('');
   const [isChecking, setIsChecking] = useState(false);
   const fileInputRef = useRef();
+  const navigate = useNavigate();
 
   const handleFileChange = (e) => {
     const selectedFiles = Array.from(e.target.files).filter(f => 
       ['image/png', 'image/jpeg', 'application/pdf'].includes(f.type)
     );
-    setFiles(prev => [...prev, ...selectedFiles]);
-    // Set status to 'idle' for new files
+    setFiles(prev => {
+      const names = new Set(prev.map(f => f.name));
+      const merged = [...prev];
+      selectedFiles.forEach(f => {
+        if (!names.has(f.name)) merged.push(f);
+      });
+      return merged;
+    });
     setStatuses(prev => ({ ...prev, ...Object.fromEntries(selectedFiles.map(f => [f.name, 'idle'])) }));
-    setUploads(sheetId, selectedFiles.map(f => ({ name: f.name, type: f.type })));
+    setUploads(sheetId, [...files, ...selectedFiles].map(file => ({ name: file.name, type: file.type })));
+    e.target.value = '';
   };
 
   const handleBrowseClick = (e) => {
@@ -28,7 +36,6 @@ function UploadSheets({ sheetId }) {
   const handleCheckAll = async () => {
     setMessage('');
     setIsChecking(true);
-    // Get answer key for this sheet
     const answerKey = getAnswerKey(sheetId);
     if (!answerKey) {
       setMessage('Error: No answer key found for this sheet. Please add an answer key first.');
@@ -38,13 +45,11 @@ function UploadSheets({ sheetId }) {
     for (const file of files) {
       setStatuses(prev => ({ ...prev, [file.name]: 'pending' }));
       try {
-        // Get test info from localStorage (we need to get this from the sheet data)
         const sheets = JSON.parse(localStorage.getItem('answerSheets') || '[]');
         const currentSheet = sheets.find(s => s.id === sheetId);
         if (!currentSheet) {
           throw new Error('Sheet not found');
         }
-        // Prepare test info for backend
         const testInfo = {
           num_items: parseInt(currentSheet.form.numItems) || 0,
           num_choices: parseInt(currentSheet.form.numChoices) || 4,
@@ -54,7 +59,6 @@ function UploadSheets({ sheetId }) {
           grid_start_y: currentSheet.form.gridStartY || null,
           grid_layout_params: currentSheet.form.gridLayoutParams || null
         };
-        // Send to backend API
         const formData = new FormData();
         formData.append('file', file);
         formData.append('test_info', JSON.stringify(testInfo));
@@ -68,23 +72,20 @@ function UploadSheets({ sheetId }) {
           throw new Error(`Check failed: ${errorText}`);
         }
         const result = await res.json();
-        // Save result in localStorage (append to scanResults for this sheet)
+        result.file_name = file.name;
         try {
           const prevResults = JSON.parse(localStorage.getItem(`scanResults_${sheetId}`) || '[]');
           localStorage.setItem(`scanResults_${sheetId}`, JSON.stringify([...prevResults, result]));
           setStatuses(prev => ({ ...prev, [file.name]: 'checked' }));
         } catch (storageError) {
           if (storageError.name === 'QuotaExceededError') {
-            // localStorage is full, clear old results and try again
             try {
-              // Clear all scan results to free up space
               const keys = Object.keys(localStorage);
               keys.forEach(key => {
                 if (key.startsWith('scanResults_')) {
                   localStorage.removeItem(key);
                 }
               });
-              // Try saving again
               localStorage.setItem(`scanResults_${sheetId}`, JSON.stringify([result]));
               setStatuses(prev => ({ ...prev, [file.name]: 'checked' }));
               setMessage('Storage was full. Old results cleared. Current result saved.');
@@ -104,11 +105,16 @@ function UploadSheets({ sheetId }) {
       }
     }
     setIsChecking(false);
-    setMessage('All test papers have been checked! See results tab for scores.');
+    // Redirect to results tab/page after checking
+    if (onSeeResults) {
+      onSeeResults();
+    } else {
+      navigate('/generate', { state: { tab: 'results' } });
+    }
   };
 
   return (
-    <div className={styles['upload-outer']}>
+    <div className={styles['upload-outer']} style={{ position: 'relative' }}>
       <div className={styles['upload-dropzone']} onClick={handleBrowseClick}>
         <input
           type="file"
@@ -127,7 +133,7 @@ function UploadSheets({ sheetId }) {
         <div className={styles['upload-text']}>Drop or click to upload PNG/JPG/PDF test papers</div>
       </div>
       {files.length > 0 && (
-        <div className={styles['upload-files-list']}>
+        <div className={styles['upload-files-list'] + ' ' + styles['page-content-top']}>
           {files.map((f, idx) => (
             <div className={styles['upload-file-item']} key={f.name + idx}>
               <span className={styles['upload-file-name']}>{f.name}</span>
@@ -140,6 +146,26 @@ function UploadSheets({ sheetId }) {
                 {statuses[f.name] === 'error' && '❌ Error'}
                 {statuses[f.name] === 'idle' && '🕓 Ready'}
               </span>
+              <button
+                className={styles['upload-file-delete-btn']}
+                title="Remove file"
+                type="button"
+                onClick={() => {
+                  const newFiles = files.filter((_, i) => i !== idx);
+                  setFiles(newFiles);
+                  setStatuses(prev => {
+                    const copy = { ...prev };
+                    delete copy[f.name];
+                    return copy;
+                  });
+                  setUploads(sheetId, newFiles.map(file => ({ name: file.name, type: file.type })));
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#b00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="5" y1="5" x2="15" y2="15" />
+                  <line x1="15" y1="5" x2="5" y2="15" />
+                </svg>
+              </button>
             </div>
           ))}
         </div>
@@ -149,9 +175,12 @@ function UploadSheets({ sheetId }) {
         onClick={handleCheckAll}
         disabled={files.length === 0 || isChecking}
       >
-        {isChecking ? 'Checking...' : 'Check All Papers'}
+        {isChecking ? 'Checking...' : 'Scan & Check'}
       </button>
-      {message && <div className={styles['upload-message']}>{message}</div>}
+      {/* Show other messages as inline notification */}
+      {message && (
+        <div className={styles['upload-message'] + ' ' + styles['upload-message-fancy']}>{message}</div>
+      )}
     </div>
   );
 }

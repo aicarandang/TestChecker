@@ -1,3 +1,7 @@
+.page-content-top {
+  margin-top: 24px;
+}
+
 .answerkey-outer {
   display: flex;
   flex-direction: column;
@@ -79,8 +83,16 @@
   cursor: pointer;
 }
 
-.answerkey-choice:hover .answerkey-bubble,
-.answerkey-bubble:hover {
+.answerkey-bubble-disabled {
+  border: 2px solid #222 !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  cursor: default !important;
+  transition: none !important;
+}
+
+.answerkey-choice:hover .answerkey-bubble:not(.answerkey-bubble-disabled),
+.answerkey-bubble:not(.answerkey-bubble-disabled):hover {
   border-color: #b6a97a;
   box-shadow: 0 0 0 2px #f6eac2;
   cursor: pointer;
@@ -104,7 +116,7 @@
 }
 
 .answerkey-save-btn {
-  margin-top: 12px;
+  margin-top: 8px;
   padding: 10px 24px;
   font-size: 1rem;
   background: #f7e7c4;
@@ -131,7 +143,6 @@
 
 @media (min-width: 601px) {
   .answerkey-grid {
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     max-width: 900px;
   }
 }

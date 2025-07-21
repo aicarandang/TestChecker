@@ -317,9 +317,7 @@ function GenerateSheet() {
 
     let page = 0;
     let itemNum = 1;
-    // Store the grid start Y position for the first page
     let gridStartY = null;
-    // Save grid layout params for backend
     const gridLayoutParams = {
       itemsPerColumn,
       colWidth: (pageWidth - 120) / 2,
@@ -330,7 +328,7 @@ function GenerateSheet() {
       numberWidth,
       gap,
       groupOffset: ((pageWidth - 120) / 2 - (numberWidth + gap + numChoices * colW)) / 2,
-      gridStartY: null, // will set below
+      gridStartY: null, 
       numItems,
       numChoices
     };
@@ -338,7 +336,7 @@ function GenerateSheet() {
       if (page > 0) doc.addPage();
       renderBorder(doc);
       let y = renderHeaderAndDirections(doc, yStart);
-      if (gridStartY === null) gridStartY = y; // Save the Y position after header/directions for the first page
+      if (gridStartY === null) gridStartY = y; 
       if (gridLayoutParams.gridStartY === null) gridLayoutParams.gridStartY = y;
       if (y + rowH + gridBottomGap > pageHeight - pageMargin) {
         doc.addPage();
@@ -359,7 +357,6 @@ function GenerateSheet() {
       itemNum = pageEnd + 1;
       page++;
     }
-    // Save gridStartY and gridLayoutParams in the selected sheet's form for backend use
     setSheets(sheets => sheets.map(s => s.id === selectedSheetId ? { ...s, form: { ...s.form, gridStartY, gridLayoutParams } } : s));
     const selectedSheet = sheets.find(s => s.id === selectedSheetId);
     let filename = selectedSheet?.name && selectedSheet.name.trim() ? selectedSheet.name.trim().replace(/[^a-zA-Z0-9-_ ]/g, '').replace(/\s+/g, '_') + '.pdf' : 'answer-sheet.pdf';
@@ -397,12 +394,10 @@ function GenerateSheet() {
     setActiveTab('generate');
   };
 
-  // Handler for editing sheet name
   const handleEditSheetName = (id, newName) => {
     setSheets(sheets.map(s => s.id === id ? { ...s, name: newName } : s));
   };
 
-  // Handler for deleting a sheet and its data
   const handleDeleteSheet = (id) => {
     removeAnswerKey(id);
     removeScanResults(id);
@@ -626,10 +621,10 @@ function GenerateSheet() {
             <AnswerKey sheetId={selectedSheetId} examData={sheets.find(s => s.id === selectedSheetId)?.form} />
           )}
           {activeTab === 'upload' && (
-            <UploadSheets sheetId={selectedSheetId} />
+            <UploadSheets sheetId={selectedSheetId} onSeeResults={() => setActiveTab('results')} />
           )}
           {activeTab === 'results' && (
-            <Results sheetId={selectedSheetId} />
+            <Results sheetId={selectedSheetId} sheetName={sheets.find(s => s.id === selectedSheetId)?.name || 'results'} />
           )}
           </div>
         </main>
