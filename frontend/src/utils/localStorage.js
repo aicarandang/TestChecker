@@ -1,5 +1,3 @@
-// Utility functions for SnapCheck localStorage management
-
 export const getAnswerSheets = () => JSON.parse(localStorage.getItem('answerSheets') || '[]');
 export const setAnswerSheets = (sheets) => localStorage.setItem('answerSheets', JSON.stringify(sheets));
 export const getSelectedSheetId = () => localStorage.getItem('selectedSheetId');

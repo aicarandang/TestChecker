@@ -39,7 +39,6 @@ function Results({ sheetId, sheetName }) {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    // Use the answer sheet name for the CSV filename
     const safeSheetName = (sheetName || 'results').replace(/[^a-zA-Z0-9-_ ]/g, '_');
     link.setAttribute('download', `${safeSheetName}.csv`);
     link.style.visibility = 'hidden';
@@ -48,7 +47,6 @@ function Results({ sheetId, sheetName }) {
     document.body.removeChild(link);
   };
 
-  // Helper to get annotated file name
   const getAnnotatedFileName = (originalName) => {
     if (!originalName) return 'annotated_paper_results';
     const dotIdx = originalName.lastIndexOf('.');
@@ -81,12 +79,12 @@ function Results({ sheetId, sheetName }) {
   };
 
   return (
-    <div className={styles['results-outer']}>
-      {results.length === 0 ? (
-        <div className={styles['results-empty']}>No checked test papers yet.</div>
-      ) : (
-        <>
-          <div className={styles['results-table-container'] + ' ' + styles['page-content-top']}>
+    <>
+      <div className={styles['page-content-top']}>
+        <div className={styles['results-table-container']}>
+          {results.length === 0 ? (
+            <div className={styles['results-empty']}>No checked test papers yet.</div>
+          ) : (
             <table className={styles['results-table']}>
               <thead>
                 <tr>
@@ -112,7 +110,6 @@ function Results({ sheetId, sheetName }) {
                               type="button"
                             >
                               {expanded[idx] ? (
-                                // Feather Icons eye-off (eye with slash)
                                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                   <path d="M17.94 17.94A10.06 10.06 0 0 1 12 20c-5 0-9.27-3.11-11-8a10.05 10.05 0 0 1 5.17-5.46" />
                                   <path d="M1 1l22 22" />
@@ -121,7 +118,6 @@ function Results({ sheetId, sheetName }) {
                                   <path d="M22.54 12.11A10.05 10.05 0 0 0 12 4c-1.61 0-3.13.31-4.5.87" />
                                 </svg>
                               ) : (
-                                // Feather Icons eye (show)
                                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                                   <circle cx="12" cy="12" r="3"/>
@@ -171,15 +167,15 @@ function Results({ sheetId, sheetName }) {
                 ))}
               </tbody>
             </table>
-          </div>
-          <div className={styles['results-actions']}>
-            <button onClick={handleSaveCSV} className={styles['results-save-csv-btn']}>
-              Save CSV
-            </button>
-          </div>
-        </>
-      )}
-    </div>
+          )}
+        </div>
+      </div>
+      <div className={styles['results-actions']}>
+        <button onClick={handleSaveCSV} className={styles['results-save-csv-btn']}>
+          Save CSV
+        </button>
+      </div>
+    </>
   );
 }
 

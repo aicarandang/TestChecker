@@ -4,8 +4,17 @@
 
 .results-outer {
   max-width: 1200px;
-  margin: 0 auto;
-  padding: 8px 16px 32px 16px; /* reduced top padding */
+  margin: 32px auto;
+  padding: 8px 16px 32px 16px;
+  background: #fff;
+  border-radius: 8px;
+  box-sizing: border-box;
+  width: 95vw;
+  min-width: 0;
+  height: auto;
+  min-height: 700px;
+  box-shadow: 0 2px 8px 0 rgba(0,0,0,0.04);
+  overflow-x: hidden;
 }
 
 .results-empty {
@@ -21,7 +30,7 @@
   align-items: flex-start;
   width: 100%;
   margin: 0 auto;
-  margin-top: 0; /* remove any extra top margin */
+  margin-top: 0;
 }
 
 .results-table {

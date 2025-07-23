@@ -8,8 +8,6 @@ function AnswerKey({ sheetId, examData }) {
   const numItems = parseInt(examData?.numItems);
   const numChoices = parseInt(examData?.numChoices);
   const choices = CHOICE_LABELS.slice(0, numChoices);
-
-  // Wait for examData to be available
   if (!examData || !numItems || !numChoices || numItems < 1 || numChoices < 1) return null;
 
   let numCols = 3;
@@ -39,7 +37,6 @@ function AnswerKey({ sheetId, examData }) {
   });
   const [editMode, setEditMode] = useState(false);
 
-  // Reload answers and lastSaved when sheetId or numItems changes
   useEffect(() => {
     const saved = getAnswerKey(sheetId);
     if (Array.isArray(saved) && saved.length === numItems) {
@@ -89,49 +86,51 @@ function AnswerKey({ sheetId, examData }) {
 
   return (
     <div className={styles['answerkey-outer']}>
-      <div
-        className={styles['answerkey-grid']}
-        style={{
-          gridTemplateColumns: `repeat(${numCols}, auto)`,
-          ['--col-count']: numCols
-        }}
-      >
-        {columns.map((col, colIdx) => (
-          <div className={styles['answerkey-col']} key={colIdx}>
-            <div className={styles['answerkey-row']} style={{ fontWeight: 700, fontSize: '1.13rem', marginBottom: 0 }}>
-              <span className={styles['answerkey-cell']} />
-              {choices.map(choice => (
-                <span className={styles['answerkey-cell']} key={choice}>
-                  <span className={styles['answerkey-label-header']}>{choice}</span>
-                </span>
-              ))}
-            </div>
-            {col.map(idx => (
-              <div className={styles['answerkey-row']} key={idx}>
-                <span className={styles['answerkey-cell']}>
-                  <span className={styles['answerkey-num']}>{idx + 1}.</span>
-                </span>
+      <div className={styles['page-content-top']}>
+        <div
+          className={styles['answerkey-grid']}
+          style={{
+            gridTemplateColumns: `repeat(${numCols}, auto)`,
+            ['--col-count']: numCols
+          }}
+        >
+          {columns.map((col, colIdx) => (
+            <div className={styles['answerkey-col']} key={colIdx}>
+              <div className={styles['answerkey-row']} style={{ fontWeight: 700, fontSize: '1.13rem', marginBottom: 0 }}>
+                <span className={styles['answerkey-cell']} />
                 {choices.map(choice => (
                   <span className={styles['answerkey-cell']} key={choice}>
-                    <label className={styles['answerkey-choice']}>
-                      <span className={styles['answerkey-bubble'] + (!editMode ? ' ' + styles['answerkey-bubble-disabled'] : '')}>
-                        <input
-                          type="radio"
-                          name={`item-${idx}`}
-                          value={choice}
-                          checked={answers[idx] === choice}
-                          onChange={() => handleSelect(idx, choice)}
-                          disabled={!editMode}
-                        />
-                        {answers[idx] === choice ? <span className={styles['answerkey-filled']} /> : null}
-                      </span>
-                    </label>
+                    <span className={styles['answerkey-label-header']}>{choice}</span>
                   </span>
                 ))}
               </div>
-            ))}
-          </div>
-        ))}
+              {col.map(idx => (
+                <div className={styles['answerkey-row']} key={idx}>
+                  <span className={styles['answerkey-cell']}>
+                    <span className={styles['answerkey-num']}>{idx + 1}.</span>
+                  </span>
+                  {choices.map(choice => (
+                    <span className={styles['answerkey-cell']} key={choice}>
+                      <label className={styles['answerkey-choice']}>
+                        <span className={styles['answerkey-bubble'] + (!editMode ? ' ' + styles['answerkey-bubble-disabled'] : '')}>
+                          <input
+                            type="radio"
+                            name={`item-${idx}`}
+                            value={choice}
+                            checked={answers[idx] === choice}
+                            onChange={() => handleSelect(idx, choice)}
+                            disabled={!editMode}
+                          />
+                          {answers[idx] === choice ? <span className={styles['answerkey-filled']} /> : null}
+                        </span>
+                      </label>
+                    </span>
+                  ))}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
       {editMode ? (
         <button

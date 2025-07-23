@@ -4,21 +4,27 @@ html, body {
   margin: 0;
   padding: 0;
   width: 100vw;
-  height: 100dvh;
+  min-height: 100vh;
   box-sizing: border-box;
   font-family: 'Poppins', sans-serif;
   background: #f6f3ed;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 #root {
   width: 100vw;
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
 }
 
 body::-webkit-scrollbar, html::-webkit-scrollbar {
-  display: none;
+  width: 8px;
+  background: #f6f3ed;
+}
+
+body::-webkit-scrollbar-thumb, html::-webkit-scrollbar-thumb {
+  background: #b6a97a;
+  border-radius: 6px;
 }
 
 *, *::before, *::after {

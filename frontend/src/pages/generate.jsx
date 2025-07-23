@@ -194,9 +194,7 @@ function GenerateSheet() {
   const handleTextareaResize = (e) => {
     const textarea = e.target;
     textarea.style.height = 'auto';
-    const minHeight = getMinHeight();
-    const newHeight = Math.max(textarea.scrollHeight, minHeight);
-    setTestDirectionsHeight(selectedSheetId, newHeight);
+    textarea.style.height = textarea.scrollHeight + 'px';
   };
 
   const handleFormSubmit = (e) => {
@@ -462,6 +460,7 @@ function GenerateSheet() {
           />
           <div className={styles['generate-sheet-scrollable']}>
           {activeTab === 'generate' && (
+            <div className={styles['page-content-top']}>
               <form className={styles['generate-sheet-form']} autoComplete="off" onSubmit={handleFormSubmit}>
                 <div className={styles['generate-sheet-row']}>
                   <div className={styles['generate-sheet-col']}>
@@ -616,6 +615,7 @@ function GenerateSheet() {
                   </button>
                 </div>
               </form>
+            </div>
           )}
           {activeTab === 'answer' && (
             <AnswerKey sheetId={selectedSheetId} examData={sheets.find(s => s.id === selectedSheetId)?.form} />

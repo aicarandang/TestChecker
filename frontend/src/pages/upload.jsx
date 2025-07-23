@@ -105,7 +105,6 @@ function UploadSheets({ sheetId, onSeeResults }) {
       }
     }
     setIsChecking(false);
-    // Redirect to results tab/page after checking
     if (onSeeResults) {
       onSeeResults();
     } else {
@@ -115,22 +114,24 @@ function UploadSheets({ sheetId, onSeeResults }) {
 
   return (
     <div className={styles['upload-outer']} style={{ position: 'relative' }}>
-      <div className={styles['upload-dropzone']} onClick={handleBrowseClick}>
-        <input
-          type="file"
-          accept=".png,.jpg,.jpeg,.pdf"
-          ref={fileInputRef}
-          style={{ display: 'none' }}
-          onChange={handleFileChange}
-          multiple
-        />
-        <div className={styles['upload-icon']}>
-          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M24 34V14M24 14L16 22M24 14L32 22" stroke="#444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-            <rect x="8" y="38" width="32" height="4" rx="2" fill="#444" fillOpacity="0.12"/>
-          </svg>
+      <div className={styles['page-content-top']}>
+        <div className={styles['upload-dropzone']} onClick={handleBrowseClick}>
+          <input
+            type="file"
+            accept=".png,.jpg,.jpeg,.pdf"
+            ref={fileInputRef}
+            style={{ display: 'none' }}
+            onChange={handleFileChange}
+            multiple
+          />
+          <div className={styles['upload-icon']}>
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M24 34V14M24 14L16 22M24 14L32 22" stroke="#444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <rect x="8" y="38" width="32" height="4" rx="2" fill="#444" fillOpacity="0.12"/>
+            </svg>
+          </div>
+          <div className={styles['upload-text']}>Drop or click to upload PNG/JPG/PDF test papers</div>
         </div>
-        <div className={styles['upload-text']}>Drop or click to upload PNG/JPG/PDF test papers</div>
       </div>
       {files.length > 0 && (
         <div className={styles['upload-files-list'] + ' ' + styles['page-content-top']}>
@@ -177,7 +178,6 @@ function UploadSheets({ sheetId, onSeeResults }) {
       >
         {isChecking ? 'Checking...' : 'Scan & Check'}
       </button>
-      {/* Show other messages as inline notification */}
       {message && (
         <div className={styles['upload-message'] + ' ' + styles['upload-message-fancy']}>{message}</div>
       )}

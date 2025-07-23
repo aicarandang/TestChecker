@@ -9,36 +9,28 @@ from PIL import Image
 import pytesseract
 import base64
 import json
-import fitz  # PyMuPDF
+import fitz
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
-# Helper: Convert image to base64
 def image_to_base64(img):
     _, buffer = cv2.imencode('.png', img)
     return 'data:image/png;base64,' + base64.b64encode(buffer).decode('utf-8')
 
-# Helper: Convert PDF to image
 def pdf_to_image(pdf_bytes, page_number=0):
     """Convert PDF page to OpenCV image format"""
     try:
-        # Open PDF from bytes
         pdf_document = fitz.open(stream=pdf_bytes, filetype="pdf")
-        
-        # Get the first page
+
         page = pdf_document[page_number]
-        
-        # Convert page to image with higher resolution
-        mat = page.get_pixmap(matrix=fitz.Matrix(2.0, 2.0))  # type: ignore
-        
-        # Convert to PIL Image
-        pil_image = Image.frombytes("RGB", (mat.width, mat.height), mat.samples)  # type: ignore
-        
-        # Convert PIL image to OpenCV format
+
+        mat = page.get_pixmap(matrix=fitz.Matrix(2.0, 2.0))
+
+        pil_image = Image.frombytes("RGB", (mat.width, mat.height), mat.samples)
+
         opencv_image = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
-        
-        # Close the document
+
         pdf_document.close()
         
         return opencv_image
@@ -46,30 +38,23 @@ def pdf_to_image(pdf_bytes, page_number=0):
         print(f"Error converting PDF to image: {e}")
         return None
 
-# Helper: Detect black border rectangle
 def detect_black_border(img):
     """Detect the black border rectangle and return its coordinates and dimensions"""
     try:
-        # Convert to grayscale
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        
-        # Apply threshold to find dark regions
+
         _, thresh = cv2.threshold(gray, 50, 255, cv2.THRESH_BINARY_INV)
-        
-        # Find contours
+
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        
-        # Find the largest contour (should be the border)
+
         if not contours:
             return None
         
         largest_contour = max(contours, key=cv2.contourArea)
-        
-        # Get bounding rectangle
+
         x, y, w, h = cv2.boundingRect(largest_contour)
         
-        # Filter by size (should be large enough to be the main border)
-        min_area = img.shape[0] * img.shape[1] * 0.3  # At least 30% of image
+        min_area = img.shape[0] * img.shape[1] * 0.3
         if w * h < min_area:
             return None
         
@@ -78,11 +63,9 @@ def detect_black_border(img):
         print(f"Error detecting black border: {e}")
         return None
 
-# Helper: Extract text from a region
 def ocr_region(img, x, y, w, h):
     roi = img[y:y+h, x:x+w]
     gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-    # Adaptive thresholding for handwriting
     proc = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 15, 10)
     kernel = np.ones((2,2), np.uint8)
     proc = cv2.dilate(proc, kernel, iterations=1)
@@ -91,7 +74,6 @@ def ocr_region(img, x, y, w, h):
     text = pytesseract.image_to_string(pil_img, config=config).strip()
     return text
 
-# Helper: Detect filled bubbles (simple thresholding + contour analysis)
 def detect_bubbles(img, bubble_coords, threshold=0.5):
     answers = []
     for item_bubbles in bubble_coords:
@@ -100,8 +82,8 @@ def detect_bubbles(img, bubble_coords, threshold=0.5):
             mask = np.zeros(img.shape[:2], dtype=np.uint8)
             cv2.circle(mask, (x, y), r, 255, -1)
             mean_result = cv2.mean(img, mask=mask)
-            mean = float(mean_result[0])  # type: ignore
-            fill = 255 - mean  # Invert: filled = dark
+            mean = float(mean_result[0])
+            fill = 255 - mean
             if fill > threshold * 255:
                 filled_bubbles.append(idx)
         if len(filled_bubbles) == 1:
@@ -109,7 +91,7 @@ def detect_bubbles(img, bubble_coords, threshold=0.5):
         elif len(filled_bubbles) > 1:
             answers.append('Multiple Answers')
         else:
-            answers.append(None)  # No answer
+            answers.append(None)
     return answers
 
 @app.route('/api/check', methods=['POST'])
@@ -118,51 +100,39 @@ def check_sheet():
     test_info = json.loads(request.form['test_info'])
     answer_key = json.loads(request.form['answer_key'])
     
-    # Get file extension to determine if it's PDF or image
     filename = file.filename or ''
     is_pdf = filename.lower().endswith('.pdf')
     
-    # Read file content
     file_content = file.read()
     
-    # Process based on file type
     if is_pdf:
-        # Convert PDF to image
         img = pdf_to_image(file_content)
         if img is None:
             return jsonify({'error': 'Failed to convert PDF to image'}), 400
     else:
-        # Read image
         in_memory = np.frombuffer(file_content, np.uint8)
         img = cv2.imdecode(in_memory, cv2.IMREAD_COLOR)
-        
-        # Check if image was successfully decoded
+
         if img is None:
             return jsonify({'error': 'Failed to decode image'}), 400
-    
-    # Detect black border
+
     border_info = detect_black_border(img)
     if border_info is None:
         return jsonify({'error': 'Could not detect black border in the image'}), 400
     
     border_x, border_y, border_w, border_h = border_info
-    
-    # Crop image to border region
+
     cropped_img = img[border_y:border_y+border_h, border_x:border_x+border_w]
-    
-    # Use cropped image for all processing
+
     img = cropped_img
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-    # --- Reference dimensions (standard A4 proportions within border) ---
-    ref_width = 595  # Reference width (PDF points)
-    ref_height = 842  # Reference height (PDF points)
+    ref_width = 595
+    ref_height = 842
     
-    # Calculate scaling factors based on detected border
     scale_x = border_w / ref_width
     scale_y = border_h / ref_height
 
-    # --- Layout parameters (from frontend) ---
     num_items = int(test_info['num_items'])
     num_choices = int(test_info['num_choices'])
     grid_params = test_info.get('grid_layout_params', {})
@@ -176,7 +146,6 @@ def check_sheet():
         number_width_pdf = grid_params.get('numberWidth', 18)
         gap_pdf = grid_params.get('gap', 8)
         group_offset_pdf = grid_params.get('groupOffset', (col_width_pdf - (number_width_pdf + gap_pdf + num_choices * col_w_pdf)) / 2)
-        # --- Move bubble grid down by 3 PDF points for even better alignment ---
         grid_start_y_pdf = grid_params.get('gridStartY', 0) + 3
         grid_start_y = int(grid_start_y_pdf * scale_y)
     else:
@@ -192,7 +161,6 @@ def check_sheet():
         grid_start_y_pdf = int(test_info.get('grid_start_y', 120)) + 3
         grid_start_y = int(grid_start_y_pdf * scale_y)
 
-    # Scale all coordinates to image pixels
     col_x = [int(x * scale_x) for x in col_x_pdf]
     col_width = col_width_pdf * scale_x
     row_h = int(row_h_pdf * scale_y)
@@ -203,18 +171,14 @@ def check_sheet():
     gap = int(gap_pdf * scale_x)
     group_offset = int(group_offset_pdf * scale_x)
 
-    # --- Name/Section box positions (PDF points, then scaled to image pixels) ---
-    # Move boxes down by 1 PDF point for better alignment
-    name_box_pdf = (48, 115, 226, 24)  # y increased by 1
-    section_box_pdf = (48, 139, 226, 24)  # y increased by 1
+    name_box_pdf = (48, 115, 226, 24) 
+    section_box_pdf = (48, 139, 226, 24)  
     name_box = tuple(int(v * (scale_x if i % 2 == 0 else scale_y)) for i, v in enumerate(name_box_pdf))
     section_box = tuple(int(v * (scale_x if i % 2 == 0 else scale_y)) for i, v in enumerate(section_box_pdf))
 
-    # --- OCR: Extract name and section ---
     name = ocr_region(img, *name_box)
     section = ocr_region(img, *section_box)
 
-    # --- Calculate bubble coordinates (match frontend exactly, with fine-tuned vertical offset) ---
     bubble_coords = []
     for i in range(num_items):
         col = 0 if i < items_per_column else 1
@@ -224,11 +188,10 @@ def check_sheet():
         for_bubbles = []
         for c in range(num_choices):
             bubble_x = x + group_offset + number_width + gap + c * col_w
-            bubble_y = y + bubble_r + 7  # +7 for better alignment
+            bubble_y = y + bubble_r + 7
             for_bubbles.append((int(round(bubble_x)), int(round(bubble_y)), int(round(bubble_r))))
         bubble_coords.append(for_bubbles)
 
-    # --- OMR: Detect filled bubbles ---
     answers_idx = detect_bubbles(gray, bubble_coords)
     choice_labels = ['A', 'B', 'C', 'D', 'E', 'F'][:num_choices]
     answers = []
@@ -240,7 +203,6 @@ def check_sheet():
         else:
             answers.append(None)
 
-    # --- Scoring ---
     score = 0
     item_results = []
     for i, (ans, correct) in enumerate(zip(answers, answer_key)):
@@ -254,21 +216,18 @@ def check_sheet():
             'correct': correct_bool
         })
 
-    # --- Annotate image ---
     annotated = img.copy()
-    
-    # Draw the detected border (for debugging)
+
     cv2.rectangle(annotated, (0, 0), (border_w, border_h), (255, 255, 0), 2)
     
     for i, item_bubbles in enumerate(bubble_coords):
         for c, (x, y, r) in enumerate(item_bubbles):
             color = (0, 255, 0) if answers_idx[i] == c and answers[i] == answer_key[i] else (0, 0, 255) if answers_idx[i] == c else (180, 180, 180)
             cv2.circle(annotated, (x, y), r, color, 2)
-    # Draw name/section boxes
+
     cv2.rectangle(annotated, (name_box[0], name_box[1]), (name_box[0]+name_box[2], name_box[1]+name_box[3]), (255,0,0), 2)
     cv2.rectangle(annotated, (section_box[0], section_box[1]), (section_box[0]+section_box[2], section_box[1]+section_box[3]), (255,0,0), 2)
 
-    # --- Encode annotated image ---
     annotated_b64 = image_to_base64(annotated)
 
     return jsonify({
